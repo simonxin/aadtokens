@@ -8,10 +8,10 @@ import-module ./aadtokens.psm1 -force
 
 # Build and Test
 Sample command (add -verbose will show ebug information which include all parameters when call Azure AD authorizationg and token endpoint):
-# use authorization code flow and first party applcation -- wrong token demo
+1) use authorization code flow and first party applcation -- wrong token demo
 $authcodetoken1 = Get-AccessTokenForMSGraph -verbose
 
-# try to call msgraph API with the access token generated
+2) try to call msgraph API with the access token generated
 Connect-MgGraph -AccessToken $authcodetoken1 -Environment China
 Get-Mguser
 Disconnect-MgGraph
