@@ -1,72 +1,55 @@
 Command,Sample Usage,Description
 Clear-Cache,Clear-Cache,command used to clear the saved tokens in cache
-get-idtoken,"get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -verbose
-",command to get id_token or access_token through OpenID connect or implicit grant flow
+Get-Cache,Get-Cache,command to list all current stored tokens in cache
+get-idtoken,get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -verbose,command to get id_token via openID connect or implicit grant flow
 ,"
-get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -tokentype ""token"" -verbose",
-Get-AccessToken,"Get-AccessToken -Resource $Resource -ClientId $clientId  -Tenant $Tenant -redirecturi $RedirectUri -scope $scope -verbose  
-Get-AccessToken -Resource $Resource -ClientId $clientId  -forcemfa $true -verbose  
+get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -tokentype ""token"" -verbose",supported token type: id_token token
+Get-AccessToken,Get-AccessToken -Resource $Resource -ClientId $clientId  -Tenant $Tenant -redirecturi $RedirectUri -scope $scope -verbose  ,command to get access token. Default is using authorization code flow. 
+,"
 Get-AccessToken -Resource $Resource -ClientId $clientId  -savetocache $true -verbose  
-Get-AccessToken -Resource $Resource -ClientId $clientId  -usedevicecode $true -verbose  
-Get-AccessToken -Resource $Resource -ClientId $clientId  -IncludeRefreshToken $true -verbose  
-Get-AccessToken -Credentials $credential -tenant $tenant -redirecturi $redirecturi -verbose   ","command to get access token. Default is using authorization code flow. 
-Use -savetocache to store the token in cache.
-Use -usedevicecode to get access token via device code flow.
-Use -IncludeRefreshToken to request refresh token too
-Use -forceMfa to force the authorize using MFA
-Use -credentials to use a provided credential to request token"
+","Use -savetocache to store the token in cache.
+"
+,Get-AccessToken -Resource $Resource -ClientId $clientId  -forcemfa $true -verbose  ,Use -forceMfa to force the authorize using MFA
+,Get-AccessToken -Credentials $credential -tenant $tenant -redirecturi $redirecturi -verbose   ,Use -credentials to use a provided client credential to request token via client credential flow
+,Get-AccessToken -Resource $Resource -ClientId $clientId  -IncludeRefreshToken $true -verbose  ,Use -IncludeRefreshToken to request refresh token too
+,Get-AccessToken -Resource $Resource -ClientId $clientId  -usedevicecode $true -verbose  ,Use -usedevicecode to get access token via device code flow.
 Get-UserInfo,Get-UserInfo -ClientId $ClientId -clientSecret $clientSecret -redirecturi $RedirectUri -verbose,Command to use userinfo endpoint to get user information
-Get-AccessTokenForAADGraph,"Get-AccessTokenForAADGraph 
-Get-AccessTokenForAADGraph -savetocache
-Get-AccessTokenForAADGraph -usedevicecode",command to request access token for AAD Graph (https://graph.chinacloudapi.cn)
+Get-AccessTokenForAADGraph,"Get-AccessTokenForAADGraph
+",command to request access token for AAD Graph (https://graph.chinacloudapi.cn)
 Get-AccessTokenForAADIAMAPI,"Get-AccessTokenForAADIAMAPI
-Get-AccessTokenForAADIAMAPI -savetocache
-Get-AccessTokenForAADIAMAPI -usedevicecode",command to request access token for AAD IAM API (https://main.iam.ad.ext.azure.cn)
+",command to request access token for AAD IAM API (https://main.iam.ad.ext.azure.cn)
 Get-AccessTokenForAADJoin,"Get-AccessTokenForAADJoin
-Get-AccessTokenForAADJoin -savetocache
-Get-AccessTokenForAADJoin -usedevicecode",command to request access token for urn:ms-drs:enterpriseregistration.partner.microsoftonline.cn
+",command to request access token for urn:ms-drs:enterpriseregistration.partner.microsoftonline.cn
 Get-AccessTokenForAzureCoreManagement,"Get-AccessTokenForAzureCoreManagement
-Get-AccessTokenForAzureCoreManagement -savetocache
-Get-AccessTokenForAzureCoreManagement -usedevicecode",command to request access token for https://management.core.chinacloudapi.cn/
+",command to request access token for https://management.core.chinacloudapi.cn/
 Get-AccessTokenForAzureMgmtAPI,"Get-AccessTokenForAzureMgmtAPI
-Get-AccessTokenForAzureMgmtAPI -savetocache
-Get-AccessTokenForAzureMgmtAPI -usedevicecode",command to request access token  for https://management.chinacloudapi.cn/
+",command to request access token  for https://management.chinacloudapi.cn/
 Get-AccessTokenForEXO,"Get-AccessTokenForEXO
-Get-AccessTokenForEXO -savetocache
-Get-AccessTokenForEXO -usedevicecode",command to request access token for https://partner.outlook.cn using office client
+",command to request access token for https://partner.outlook.cn using office client
 Get-AccessTokenForEXOPS,"Get-AccessTokenForEXOPS
-Get-AccessTokenForEXOPS -savetocache
-Get-AccessTokenForEXOPS -usedevicecode",command to request access token for https://partner.outlook.cn using EXO powersehll client
+",command to request access token for https://partner.outlook.cn using EXO powersehll client
 Get-AccessTokenForIntuneMDM,"Get-AccessTokenForIntuneMDM
-Get-AccessTokenForIntuneMDM -savetocache
-Get-AccessTokenForIntuneMDM -usedevicecode",command to request access token for  https://enrollment.manage.microsoftonline.cn/
+",command to request access token for  https://enrollment.manage.microsoftonline.cn/
 Get-AccessTokenForMip,"Get-AccessTokenForMip
-Get-AccessTokenForMip -savetocache
-Get-AccessTokenForMip -usedevicecode",command to request access token for  https://syncservice.o365syncservice.com
+",command to request access token for  https://syncservice.o365syncservice.com
 Get-AccessTokenForMSGraph,"Get-AccessTokenForMSGraph
-Get-AccessTokenForMSGraph -savetocache
-Get-AccessTokenForMSGraph -usedevicecode",command to request access token for MS Graph (https://microsoftgraph.chinacloudapi.cn)
+",command to request access token for MS Graph (https://microsoftgraph.chinacloudapi.cn)
 Get-AccessTokenForOfficeApps,"Get-AccessTokenForOfficeApps
-Get-AccessTokenForOfficeApps -savetocache
-Get-AccessTokenForOfficeApps -usedevicecode",command to request access token for https://officeapps.live.com 
+",command to request access token for https://officeapps.live.com 
 Get-AccessTokenForOneDrive,"Get-AccessTokenForOneDrive
-Get-AccessTokenForOneDrive -savetocache
-Get-AccessTokenForOneDrive -usedevicecode",command to request access token for sharepoint.cn
+",command to request access token for sharepoint.cn
 Get-AccessTokenForOneNote,"Get-AccessTokenForOneNote
-Get-AccessTokenForOneNote -savetocache
-Get-AccessTokenForOneNote -usedevicecode",command to request access token for onenote (https://api.partner.office365.cn)
+",command to request access token for onenote (https://api.partner.office365.cn)
 Get-AccessTokenFromCache,get-accesstokenfromcache -clientId $clientId -resource $resource,command to get access token from local cache
 Get-AccessTokenUsingAADGraph,Get-AccessTokenUsingAADGraph -clientId $clientId -resource $resource,command to to get access token by using a new refresh token for AAD graph (https://graph.chinacloudapi.cn)
 Get-AccessTokenwithobo,Get-AccessTokenwithobo  -Credentials $credential -token $clienttoken -Tenant $Tenant -scope $scope -verbose,command to get access token through on behalf of flow
 Get-AccessTokenWithRefreshToken,Get-AccessTokenWithRefreshToken -TenantId $Tenant  -clientId $clientID -resource $resource -RefreshToken $refreshtoken -IncludeRefreshToken $true -verbose,command to get access token using a refreh token
-Get-Cache,Get-Cache,command to list all current stored tokens in cache
-Get-DefaultCloud,Get-DefaultCloud,command to get the current default cloud resources
-get-DualFedTenant,"Get-DualFedTenant -domain contoso.com
-Get-DualFedTenant -username user@contoso.com",Command to check out if the giving domain/user UPN is a dual federation tenants and return all tenant ID
+get-DualFedTenant,Get-DualFedTenant -domain contoso.com,Command to check out if the giving user UPN is a dual federation tenants and return all tenant ID
+,"
+Get-DualFedTenant -username user@contoso.com",Command to check out if the giving user UPN is a dual federation tenants and return all tenant ID
 Get-OpenIDConfiguration,"Get-OpenIDConfiguration -domain contoso.com
-Get-OpenIDConfiguration -domain contoso.com -cloud ""AzureChina""
-Get-OpenIDConfiguration -domain contoso.com -appid $appID",Command to get openId know configuration for a giving domain or user UPN
+",Command to get openId know configuration for a giving domain or user UPN
 Get-TenantID,"Get-TenantID -domain contoso.com
-Get-TenantID -username user@contoso.com
-Get-TenantID -AccessToken $accesstoken",Command to get tenant ID based on giving domain/user UPN/access_token
+",Command to get tenant ID based on giving domain/user UPN/access_token
 Set-DefaultCloud,"Set-DefaultCloud -cloud ""AzureChina""",commnd to set the default cloud (support for AzureChina and AzurePublic currently)
+Get-DefaultCloud,Get-DefaultCloud,command to get the current default cloud resources

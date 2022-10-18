@@ -45,9 +45,9 @@ If the current required cloud is not the expected one, you can set default cloud
 	# current supported cloud instance: AzureChina, AuzrePublic
 	set-defaultcloud "<CloudInstance>"
 
-## command reference
+## Cmdlets reference
 	
-### [command list](./doc/commands.csv)
+### [list](./doc/commands.csv)
 
 
 # Sample usage
