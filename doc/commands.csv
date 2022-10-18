@@ -2,10 +2,10 @@ Command,Sample Usage,Description
 Clear-Cache,Clear-Cache,command used to clear the saved tokens in cache
 get-idtoken,"get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -verbose
 get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -tokentype ""token"" -verbose",command to get id_token or access_token through OpenID connect or implicit grant flow
-Get-AccessToken,"Get-AccessToken -Resource $Resource -ClientId $clientId  -Tenant $Tenant -redirecturi $RedirectUri -scope $scope -verbose
-Get-AccessToken -Resource $Resource -ClientId $clientId  -forcemfa $true -verbose
-Get-AccessToken -Resource $Resource -ClientId $clientId  -savetocache $true -verbose
-Get-AccessToken -Resource $Resource -ClientId $clientId  -usedevicecode $true -verbose
+Get-AccessToken,"Get-AccessToken -Resource $Resource -ClientId $clientId  -Tenant $Tenant -redirecturi $RedirectUri -scope $scope -verbose \n
+Get-AccessToken -Resource $Resource -ClientId $clientId  -forcemfa $true -verbose \n
+Get-AccessToken -Resource $Resource -ClientId $clientId  -savetocache $true -verbose \n
+Get-AccessToken -Resource $Resource -ClientId $clientId  -usedevicecode $true -verbose \n
 Get-AccessToken -Resource $Resource -ClientId $clientId  -IncludeRefreshToken $true -verbose
 Get-AccessToken -Credentials $credential -tenant $tenant -redirecturi $redirecturi -verbose ","command to get access token. Default is using authorization code flow. 
 Use -savetocache to store the token in cache.
