@@ -11,6 +11,24 @@ Add-Type -AssemblyName System.Web
 Add-Type -AssemblyName System.Windows.Forms
 
 
+# Clear the Forms.WebBrowser data
+# 
+$source=@"
+[DllImport("wininet.dll", SetLastError = true)]
+public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int lpdwBufferLength);
+
+[DllImport("wininet.dll", SetLastError = true)]
+public static extern bool InternetGetCookieEx(string pchURL, string pchCookieName, System.Text.StringBuilder pchCookieData, ref uint pcchCookieData, int dwFlags, IntPtr lpReserved);
+"@
+
+##Create type from source
+$WebBrowser = Add-Type -memberDefinition $source -passthru -name WebBrowser -ErrorAction SilentlyContinue
+$INTERNET_OPTION_END_BROWSER_SESSION = 42
+$INTERNET_OPTION_SUPPRESS_BEHAVIOR   = 81
+$INTERNET_COOKIE_HTTPONLY            = 0x00002000
+$INTERNET_SUPPRESS_COOKIE_PERSIST    = 3
+
+# 
 
 # referred known first-party app https://github.com/Seb8iaan/Microsoft-Owned-Enterprise-Applications/blob/main/Microsoft%20Owned%20Enterprise%20Applications%20Overview.md
 $AzureKnwonClients = @{
@@ -214,6 +232,32 @@ $AzureResources = @{
     
 }
 
+
+# get default cloud instance
+function Set-DefaultCloud
+{
+    Param(
+    [Parameter(Mandatory=$True)]
+    [ValidateSet("AzureChina", "AzurePublic")]
+    [String]$cloud
+    )
+    Process
+    {
+
+        $script:DefaultAzureCloud=$Cloud
+        write-output "updated default cloud to $Cloud"
+    }
+}
+
+# set default cloud instance
+function Get-DefaultCloud
+{
+    $Cloud=$script:DefaultAzureCloud
+    write-output "Current default cloud is $Cloud"
+   
+    write-output "Resource Endpoints for current cloud instance: "
+    write-output $script:AzureResources[$Cloud]
+}
 
 
 
@@ -680,8 +724,13 @@ function Get-OpenIDConfiguration
         } else {
             $uri = "$aadloginuri/$Domain/.well-known/openid-configuration?appid=$appid"
         }
-
-        $openIdConfig=Invoke-RestMethod -UseBasicParsing $uri
+        
+        try {
+            $openIdConfig=Invoke-RestMethod -UseBasicParsing $uri
+        }
+        catch {
+            return $null
+        }
 
         # Return
         $openIdConfig
@@ -711,11 +760,11 @@ function get-DualFedTenant
         {
             $Domain = $UserName.split("@")[1].ToString()
         }
-
+   
         $aztenantId = Get-TenantID -Domain $domain -cloud "AzurePublic"
         $mktenantId = Get-TenantID -Domain $domain -cloud "AzureChina"
-
-        if ($aztenantId -eq $mktenantId) {
+        
+        if ([String]::IsNullOrEmpty($aztenantId) -or [String]::IsNullOrEmpty($mktenantId) -or ($aztenantId -eq $mktenantId)) {
             $isdualfeddomain = $false
         } else {
             $isdualfeddomain = $true
@@ -726,13 +775,13 @@ function get-DualFedTenant
             $chinaazureTenant = $mktenantId
          
         } else {
-            $tenantinfo = Get-OpenIDConfiguration -Domain $domain -cloud "AzurePublic"
-            if ($tenantinfo.cloud_instance_name -like 'microsoftonline.com') {
+
+            if([String]::IsNullOrEmpty($aztenantId)){
+                $globalazureTenant = ""
+                $chinaazureTenant = $mktenantId
+            } else {
                 $globalazureTenant = $aztenantId
                 $chinaazureTenant = ""
-            } else {
-                $globalazureTenant = ""
-                $chinaazureTenant = $aztenantId
             }
         }
 
@@ -794,13 +843,13 @@ function Get-TenantID
           Try
           {
                 $OpenIdConfig = Get-OpenIDConfiguration -Domain $Domain -cloud $Cloud
+                $TenantId = $OpenIdConfig.authorization_endpoint.Split("/")[3]
           }
           catch
           {
                return $null
            }
-
-           $TenantId = $OpenIdConfig.authorization_endpoint.Split("/")[3]
+          
         }
         else
         {
@@ -808,7 +857,7 @@ function Get-TenantID
         }
 
         # Return
-        $TenantId
+        return $TenantId
     }
 }
 
@@ -1344,9 +1393,12 @@ function Prompt-Credentials
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$Resource,
+        [Parameter(Mandatory=$true)]
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
+        [Parameter(Mandatory=$False)]
+        [String]$clientSecret,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
         [Parameter(Mandatory=$False)]
@@ -1372,12 +1424,18 @@ function Prompt-Credentials
             $scope = "openid profile"
         } else {
             $scope = "openid profile $scope"
+
         }
         $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
      
 
         $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
         $mdm = $script:AzureResources[$Cloud]['mdm']
+
+        if([string]::IsNullOrEmpty($RedirectUri))
+        {
+            $RedirectUri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+        }
 
         # Set variables
         $auth_redirect= $RedirectUri
@@ -1386,11 +1444,15 @@ function Prompt-Credentials
         if ($auth_redirect -like "urn:ietf:wg:oauth:2.0:oob*") {
             $auth_redirect=[System.Web.HttpUtility]::UrlEncode($auth_redirect)
         }
-                        
+
         # Create the url
         $request_id=(New-Guid).ToString()
-        $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=$encodescope"
-       
+        if(![string]::IsNullOrEmpty($Resource)) {
+            $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=$encodescope"
+        } else {
+            $url="$aadloginuri/$Tenant/oauth2/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=$encodescope"
+        }
+    
         write-verbose "oauth Url: $url"
        
         if($ForceMFA)
@@ -1422,12 +1484,23 @@ function Prompt-Credentials
             # Create a body for REST API request
 
 
-            $body = @{
-                client_id=$client_id
-                grant_type="authorization_code"
-                code=$output["code"]
-                redirect_uri=$RedirectUri
-                scope = $scope
+            if([string]::IsNullOrEmpty($clientSecret)) {
+                $body = @{
+                    client_id=$client_id
+                    grant_type="authorization_code"
+                    code=$output["code"]
+                    redirect_uri=$RedirectUri
+                    scope = $scope
+                }
+            } else {
+                $body = @{
+                    client_id=$client_id
+                    client_secret=$clientSecret
+                    grant_type="authorization_code"
+                    code=$output["code"]
+                    redirect_uri=$RedirectUri
+                    scope = $scope
+                }
             }
 
             # verbose output for token request
@@ -1451,180 +1524,6 @@ function Prompt-Credentials
     }
 }
 
-
-# Prompts for credentials and gets the access token
-# Supports MFA, federation, etc.
-function Get-Idtoken
-{
-    [cmdletbinding()]
-    Param(
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
-        [Parameter(Mandatory=$False)]
-        [bool]$ForceMFA=$false,
-        [Parameter(Mandatory=$false)]
-        [String]$RedirectUri,
-        [Parameter(Mandatory=$false)]
-        [String]$scope,
-        [Parameter(Mandatory=$false)]
-        [String]$response_mode = "form_post",
-        [Parameter(Mandatory=$false)]
-        [String]$state = "1234",
-        [Parameter(Mandatory=$false)]
-        [String]$none = "56789",
-        [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
-
-    )
-    Process
-    {
-        # Check the tenant
-        if([String]::IsNullOrEmpty($Tenant))        
-        {
-            $Tenant = "common"
-        }
-
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = "openid"
-        } else {
-            $scope = "openid $scope"
-        }
-        $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
-     
-
-        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
-        $mdm = $script:AzureResources[$Cloud]['mdm']
-
-        # Set variables
-        $auth_redirect= $RedirectUri
-        $client_id=     $ClientId # Usually should be graph_api
-
-        if ($auth_redirect -like "urn:ietf:wg:oauth:2.0:oob*") {
-            $auth_redirect=[System.Web.HttpUtility]::UrlEncode($auth_redirect)
-        }
-                        
-        # Create the url
-        $url="$aadloginuri/$Tenant/oauth2/authorize?&client_id=$client_id&response_type=id_token&redirect_uri=$auth_redirect&reponse_mode=$response_mode&prompt=login&scope=$encodescope&state=$state&nonce=$none"
-       
-        write-verbose "oauth Url: $url"
-       
-        if($ForceMFA)
-        {
-            $url+="&amr_values=mfa"
-        }
-
-        # Azure AD Join
-        if($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne $mdm) 
-        {
-                $RedirectUri="ms-aadj-redir://auth/drs"
-        }
-
-        # Create the form and get output     
-        $output = Show-OAuthWindow -Url $url
-
-        # return null if the output contains error
-        if(![string]::IsNullOrEmpty($output["error"])){
-            Write-Error $output["error"]
-            Write-Error $output["error_uri"]
-            Write-Error $output["error_description"]     
-
-            $form.Controls[0].Dispose()
-            return $null
-           
-        }
-
-        if ($output["id_token"]) {
-
-            Write-Verbose "id_toen from response"
-            $output["id_token"]
-        } else {
-            Write-Verbose "no id_toen detected from response"
-            $form.Controls[0].Dispose()
-            return $null
-        }
-    }
-}
-
-
-# Prompts for credentials and gets the id token and access token for implicit
-# Supports MFA, federation, etc.
-function Prompt-Credentialsforimplicit
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$Resource,
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
-        [Parameter(Mandatory=$False)]
-        [bool]$ForceMFA=$false,
-        [Parameter(Mandatory=$false)]
-        [String]$RedirectUri,
-        [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
-
-    )
-    Process
-    {
-        # Check the tenant
-        if([String]::IsNullOrEmpty($Tenant))        
-        {
-            $Tenant = "common"
-        }
-
-        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
-        $mdm = $script:AzureResources[$Cloud]['mdm']
-
-        # Set variables
-        $auth_redirect= $RedirectUri
-        $client_id=     $ClientId # Usually should be graph_api
-
-        if ($auth_redirect -like "urn:ietf:wg:oauth:2.0:oob*") {
-            $auth_redirect=[System.Web.HttpUtility]::UrlEncode($auth_redirect)
-        }
-                        
-        # Create the url
-        $request_id=(New-Guid).ToString()
-        $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=id_token+token&response_mode=fragment&state=12345&nonce=678910&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=openid+profile"
-       
-        write-verbose "oauth Url: $url"
-       
-        if($ForceMFA)
-        {
-            $url+="&amr_values=mfa"
-        }
-
-        # Azure AD Join
-        if($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne $mdm) 
-        {
-                $RedirectUri="ms-aadj-redir://auth/drs"
-        }
-
-        # Create the form and get output     
-        $output = Show-OAuthWindow -Url $url
-
-        # return null if the output contains error
-        if(![string]::IsNullOrEmpty($output["error"])){
-            Write-Error $output["error"]
-            Write-Error $output["error_uri"]
-            Write-Error $output["error_description"]     
-
-            return $null
-           
-        }
-        write-verbose $output.Keys
-        if ($output["id_token"]) {
-            # return  id_token and access token
-            $output
-        } else {
-            Write-Verbose "no authorization code available from login attempts"
-            return $null
-        }
-    }
-}
 
 
 # Logs out the web sessions from LiveId
@@ -1685,14 +1584,17 @@ Function Show-OAuthWindow
 
     Clear-WebBrowser
 
-    $DocComp  = {
-      $Global:uri = $web.Url.AbsoluteUri
-      If ($Global:Uri -match "error=[^&]*|code=[^&]*") { $form.Close() }
-    }
+
     
     # write-verbose "oauth Url: $url"
 
     $web  = New-Object -TypeName System.Windows.Forms.WebBrowser -Property @{Width=420; Height=600; Url=($url) }
+
+    $DocComp  = {
+        $Global:uri = $web.Url.AbsoluteUri
+        If ($Global:Uri -match "error=[^&]*|code=[^&]*") { $form.Close() }
+    }
+
     $web.ScriptErrorsSuppressed = $true
     $web.Add_DocumentCompleted($DocComp)
   
@@ -1831,12 +1733,13 @@ function Create-LoginForm
             $curl=$_.Url.ToString()
             Write-Verbose "NAVIGATING TO: $curl"
             # SharePoint login
-            if($curl.EndsWith("/_forms/default.aspx"))
-            {
+
+         if($curl -eq $auth_redirect)
+           {
                 $_.Cancel=$True
                 $form.DialogResult = "OK"
                 $form.Close()
-            }
+           }
         })
         
 #        $web.ScriptErrorsSuppressed = $True
@@ -1856,24 +1759,6 @@ function Create-LoginForm
     }
 }
 
-# Clear the Forms.WebBrowser data
-# 
-$source=@"
-[DllImport("wininet.dll", SetLastError = true)]
-public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int lpdwBufferLength);
-
-[DllImport("wininet.dll", SetLastError = true)]
-public static extern bool InternetGetCookieEx(string pchURL, string pchCookieName, System.Text.StringBuilder pchCookieData, ref uint pcchCookieData, int dwFlags, IntPtr lpReserved);
-"@
-
-##Create type from source
-$WebBrowser = Add-Type -memberDefinition $source -passthru -name WebBrowser -ErrorAction SilentlyContinue
-$INTERNET_OPTION_END_BROWSER_SESSION = 42
-$INTERNET_OPTION_SUPPRESS_BEHAVIOR   = 81
-$INTERNET_COOKIE_HTTPONLY            = 0x00002000
-$INTERNET_SUPPRESS_COOKIE_PERSIST    = 3
-
-# 
 
 function Clear-WebBrowser
 {
