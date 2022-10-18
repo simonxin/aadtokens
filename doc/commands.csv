@@ -1,7 +1,9 @@
 Command,Sample Usage,Description
 Clear-Cache,Clear-Cache,command used to clear the saved tokens in cache
 get-idtoken,"get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -verbose
-get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -tokentype ""token"" -verbose",command to get id_token or access_token through OpenID connect or implicit grant flow
+",command to get id_token or access_token through OpenID connect or implicit grant flow
+,"
+get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -tokentype ""token"" -verbose",
 Get-AccessToken,"Get-AccessToken -Resource $Resource -ClientId $clientId  -Tenant $Tenant -redirecturi $RedirectUri -scope $scope -verbose
 Get-AccessToken -Resource $Resource -ClientId $clientId  -forcemfa $true -verbose
 Get-AccessToken -Resource $Resource -ClientId $clientId  -savetocache $true -verbose

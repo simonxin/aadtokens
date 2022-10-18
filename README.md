@@ -47,7 +47,7 @@ If the current required cloud is not the expected one, you can set default cloud
 
 ## command reference
 	
-### [command list](./doc/commands.xlsx)
+### [command list](./doc/commands.csv)
 
 
 # Sample usage
