@@ -1,4 +1,5 @@
 Command,Sample Usage,Description
+AccessToken,,
 Clear-Cache,Clear-Cache,command used to clear the saved tokens in cache
 Get-Cache,Get-Cache,command to list all current stored tokens in cache
 get-idtoken,get-idtoken -clientId $clientId -redirectUri $redirectUri -tenant $tenantId -verbose,command to get id_token via openID connect or implicit grant flow
@@ -13,6 +14,7 @@ Get-AccessToken -Resource $Resource -ClientId $clientId  -savetocache $true -ver
 ,Get-AccessToken -Credentials $credential -tenant $tenant -redirecturi $redirecturi -verbose   ,Use -credentials to use a provided client credential to request token via client credential flow
 ,Get-AccessToken -Resource $Resource -ClientId $clientId  -IncludeRefreshToken $true -verbose  ,Use -IncludeRefreshToken to request refresh token too
 ,Get-AccessToken -Resource $Resource -ClientId $clientId  -usedevicecode $true -verbose  ,Use -usedevicecode to get access token via device code flow.
+Read-AccessToken,Read-Accesstoken $accesstoken,extract accesstoken with friendly string
 Get-UserInfo,Get-UserInfo -ClientId $ClientId -clientSecret $clientSecret -redirecturi $RedirectUri -verbose,Command to use userinfo endpoint to get user information
 Get-AccessTokenForAADGraph,"Get-AccessTokenForAADGraph
 ",command to request access token for AAD Graph (https://graph.chinacloudapi.cn)
@@ -53,3 +55,35 @@ Get-TenantID,"Get-TenantID -domain contoso.com
 ",Command to get tenant ID based on giving domain/user UPN/access_token
 Set-DefaultCloud,"Set-DefaultCloud -cloud ""AzureChina""",commnd to set the default cloud (support for AzureChina and AzurePublic currently)
 Get-DefaultCloud,Get-DefaultCloud,command to get the current default cloud resources
+Get-AADknownclient,Get-AADknownclient,
+Azure Management API,,
+call-AzureManagementAPI,call-AzureManagementAPI -resourceId $resourceId -operation $operation -method $method,Command to call Azure Management API with resourceID and operations
+,call-AzureManagementAPI -command $command -method $method -verbose,Command to call Azure Management API with full Azure Management command string
+Call-AzureAADIAMAPI,"Call-AzureAADIAMAPI -AccessToken $AccessToken -Command ""ManagedApplications/List"" -Body $body -Method Post",Command to all AAM IAM API with AAD IAM command string
+Get-AADConditionalPolicies,Get-AADConditionalPolicies -top 1000,Command to get AAD conditional policies 
+Is-ExternalUserUnique,Is-ExternalUserUnique -emailaddress user@contoso.cn,Command to check if the user name is unique
+Get-AzureRBACroles,"Get-AzureRBACroles -subscriptionId $subscriptionId -filter ""type eq 'customrole'"" -verbose",Command to get RBAC roles with giving subscritionId and optional fiter string
+Get-TenantAuthenticationMethods,Get-TenantAuthenticationMethods,Command to get AAD tenant auth method
+Get-TenantApplications,Get-TenantApplications,Command to get all custom applications in current tenant
+Get-AADConnectStatus,Get-AADConnectStatus,Command to get AAD connector status
+MsGraph API,,
+Call-MSGraphAPI,"Call-MSGraphAPI -AccessToken $AccessToken -API ""directoryRoles"" -ApiVersion v1.0 -QueryString ""`$select=id,displayName,description,roleTemplateId"" -verbose",Command to call MsGraph API
+Get-AzureSignInLog,Get-AzureSignInLog -EntryId $EntryId -export -verbose,Command to get AAD signin logs with optional parameter like a entityId and optional switch export
+Get-AzureAuditLog,Get-AzureAuditLog -EntryId $EntryId -export -verbose,Command to get AAD audit logs with optional parameter like a entityId and optional switch export
+Get-MSGraphUser,Get-MSGraphUser -UserPrincipalName user@contoso.com,Command to get AAD user
+Get-MSGraphUserAppRoleAssignments,Get-MSGraphUserAppRoleAssignments -UserPrincipalName user@contoso.com,Comamnd to get Assigned Roles for AAD user
+Get-MSGraphUserOwnedDevices,Get-MSGraphUserOwnedDevices -UserPrincipalName user@contoso.com,Command to get owned device for AAD user
+Get-MSGraphUserRegisteredDevices,Get-MSGraphUserRegisteredDevices -UserPrincipalName user@contoso.com,Command to get registered device for AAD user
+Get-MSGraphUserLicenseDetails,Get-MSGraphUserLicenseDetails -UserPrincipalName user@contoso.com,Command to get assigned licenses for AAD user
+Get-MSGraphUserMemberOf,Get-MSGraphUserMemberOf -UserPrincipalName user@contoso.com,Command to get joined groups for AAD user
+Get-MSGraphUserDirectReports,Get-MSGraphUserDirectReports -UserPrincipalName user@contoso.com,Command to get directreport members for AAD user
+Get-MSGraphGroupOwners,Get-MSGraphGroupOwners -groupId $groupId,Command to get group owner for a giving groupId
+Get-MSGraphGroupMembers,Get-MSGraphGroupMembers -groupId $groupId,Command to get group members for a giving groupId
+Get-MSGraphRoles,Get-MSGraphRoles -roleId $roleId,Command to get AAD direct role definition with a roleid
+Get-MSGraphRoleMembers,Get-MSGraphRoleMembers -RolePrincipalName msgraph@contoso.com,Command to get AAD direct role members with a roleid
+Get-MSGraphDomains,Get-MSGraphDomains,Command to get all domains for current tenant
+Get-TenantAuthPolicy,Get-TenantAuthPolicy,Command to get auth policy for current tenant
+Get-TenantGuestAccess,Get-TenantGuestAccess,Command to get current tenant guest access policy
+Set-TenantGuestAccess,"Set-TenantGuestAccess -level ""full""","Command to set tenant guest access policy. Allowed values: full, normal, Restricted"
+Enable-TenantMsolAccess,Enable-TenantMsolAccess,Command to enable Msol powershell access on current tenant
+Disable-TenantMsolAccess,Disable-TenantMsolAccess,Command to disable Msol powershell access on current tenant

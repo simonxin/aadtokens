@@ -2187,3 +2187,108 @@ Function Parse-CAPIKeyBLOB
         return $RSAParameters
     }
 }
+
+
+
+# function definition to validate resource ID
+Function test-azureresourceID {
+    param(
+        [parameter(Position = 0, Mandatory = $false, ValueFromPipeline = $true)]
+        [string]$resourceID
+    )
+
+    $elements = $resourceID.split('/')
+
+    if (
+        ($elements.count -gt 8) -and ($resourceID.StartsWith('/subscriptions',[System.StringComparison]::CurrentCultureIgnoreCase)) -and ($elements[3] -like 'resourceGroups') -and ($elements[5] -like 'providers')
+    ) {
+        return $true 
+    } else {
+        return $false 
+    }
+    
+}
+
+
+
+# function definition to tract resource ID
+Function extract-azureresourceID {
+    param(
+        [parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $true)]
+        [string]$resourceID
+    )
+
+    # try to extract the resourceID only
+    $resourceID = $resourceID.split('?',2)[0]
+    if (!$resourceID.StartsWith("/")) {
+        $resourceID = "/"+$resourceID
+    }
+
+
+    if (!(test-azureresourceID $resourceID)){
+        write-verbose "invalid resourceId: $resourceID, try to extract the resource type"
+        
+        $elements = $resourceID.split("/")
+        $resourcetype = ""
+
+        for($i=0;$i -lt $elements.Length;$i++){
+            if ($elements[$i] -like 'SubscriptionId'){
+
+                $SubscriptionId = $elements[$i+1]
+            }
+
+            # not a valid resource, return the root resource type only
+
+            if ($elements[$i] -like 'providers'){
+                $Resourceprovider = $elements[$i+1]
+
+                if (![string]::IsNullOrEmpty($elements[$i+2])) {
+                    $j=$i+2
+                    while ($j -lt $elements.Length) {
+                        $Resourcetype = $Resourcetype + '/' + $elements[$j]
+                        $j=$j+2
+                    }
+               }
+               # break the for loop
+               break
+            }
+
+        }
+
+
+        $resourceobj=[PSCustomObject]@{
+            id = $resourceID
+            subscriptionId =  $SubscriptionId
+            ResourceGroup = ""
+            Resourceprovider = $Resourceprovider
+            Resourcetype  = $Resourcetype.TrimStart("/")
+        }
+
+    } else {
+
+        write-verbose "valid resourceId detected and try to exact to resource type"
+        $elements = $resourceID.split('/')
+        $Resourceprovider = $elements[6]
+        if ($elements.count -gt 7) {
+            $resourcetype=""
+            $i=7
+            while ($i -lt $elements.count) {
+                $Resourcetype = $Resourcetype + '/' + $elements[$i]
+                $i=$i+2
+            }
+        }
+        
+        $resourceobj=[PSCustomObject]@{
+            id = $resourceID
+            subscriptionId = $elements[2]
+            ResourceGroup = $elements[4]
+            Resourceprovider = $Resourceprovider
+            Resourcetype  = $Resourcetype.TrimStart("/")
+        }
+
+    }
+
+    return $resourceobj
+}
+
+

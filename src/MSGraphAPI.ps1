@@ -58,8 +58,6 @@ function Get-AzureSignInLog
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
         # Select one entry if provided
         if($EntryId)
@@ -90,7 +88,6 @@ function Get-AzureSignInLog
 }
 
 # Returns the 50 latest signin entries or the given entry
-# Jun 9th 2020
 function Get-AzureAuditLog
 {
     <#
@@ -147,8 +144,6 @@ function Get-AzureAuditLog
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
         # Select one entry if provided
         if($EntryId)
@@ -178,42 +173,12 @@ function Get-AzureAuditLog
     }
 }
 
-function Get-AADUsers
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$False)]
-        [String]$SearchString,
-        [Parameter(Mandatory=$False)]
-        [String]$UserPrincipalName
-        
-    )
-    Process
-    {
-        if(![string]::IsNullOrEmpty($SearchString))
-        {
-            $queryString="`$filter=(startswith(displayName,'$SearchString') or startswith(userPrincipalName,'$SearchString'))"
-        }
-        elseif(![string]::IsNullOrEmpty($UserPrincipalName))
-        {
-            $queryString="`$filter=userPrincipalName eq '$UserPrincipalName'"
-        }
-
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API users -QueryString $queryString
-
-        return $results
-    }
-}
-
 # Gets the user's data
-# Jun 16th 2020
 function Get-MSGraphUser
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$True)]
         [String]$UserPrincipalName
@@ -223,25 +188,22 @@ function Get-MSGraphUser
         # Url encode for external users, replace # with %23
         $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
 
-        $API = "users"
+        $API = "users/$UserPrincipalName"
         $ApiVersion = "beta"
-        $querystring = "?searchText=&top=100&nextLink=&orderByThumbnails=false&maxThumbnailCount=999&filterValue=All&state=All&adminUnit="
+        $querystring = "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
 
         $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $querystring
         
-        # "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
-
         return $results
     }
 }
 
 # Gets the user's application role assignments
-# Jun 16th 2020
 function Get-MSGraphUserAppRoleAssignments
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$False)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName
@@ -258,12 +220,11 @@ function Get-MSGraphUserAppRoleAssignments
 }
 
 # Gets the user's owned devices
-# Jun 16th 2020
 function Get-MSGraphUserOwnedDevices
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName
@@ -280,12 +241,11 @@ function Get-MSGraphUserOwnedDevices
 }
 
 # Gets the user's registered devices
-# Jun 16th 2020
 function Get-MSGraphUserRegisteredDevices
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName
@@ -302,12 +262,11 @@ function Get-MSGraphUserRegisteredDevices
 }
 
 # Gets the user's licenses
-# Jun 16th 2020
 function Get-MSGraphUserLicenseDetails
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName
@@ -324,12 +283,11 @@ function Get-MSGraphUserLicenseDetails
 }
 
 # Gets the user's groups
-# Jun 16th 2020
 function Get-MSGraphUserMemberOf
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName
@@ -346,12 +304,11 @@ function Get-MSGraphUserMemberOf
 }
 
 # Gets the user's direct reports
-# Jun 16th 2020
 function Get-MSGraphUserDirectReports
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$UserPrincipalName
@@ -367,35 +324,12 @@ function Get-MSGraphUserDirectReports
     }
 }
 
-# Gets the user's manager
-# Jun 16th 2020
-function Get-MSGraphUserManager
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$False)]
-        [String]$UserPrincipalName
-    )
-    Process
-    {
-        # Url encode for external users, replace # with %23
-        $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
-
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "users/$UserPrincipalName/manager" -ApiVersion v1.0 -QueryString "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
-
-        return $results
-    }
-}
-
 # Gets the group's owners
-# Jun 16th 2020
 function Get-MSGraphGroupOwners
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$GroupId
@@ -409,12 +343,11 @@ function Get-MSGraphGroupOwners
 }
 
 # Gets the group's members
-# Jun 16th 2020
 function Get-MSGraphGroupMembers
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
         [Parameter(Mandatory=$False)]
         [String]$GroupId
@@ -427,15 +360,34 @@ function Get-MSGraphGroupMembers
     }
 }
 
-# Gets the group's members
-# Jun 17th 2020
+
+# Gets the aad roles 
+function Get-MSGraphRoles
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$true)]
+        [String]$RoleId
+    )
+    Process
+    {
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "directoryRoles" -ApiVersion v1.0 -QueryString "`$select=id,displayName,description,roleTemplateId"
+
+        return $results
+    }
+}
+
+
+# Gets the aad role members
 function Get-MSGraphRoleMembers
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory=$true)]
         [String]$RoleId
     )
     Process
@@ -447,12 +399,11 @@ function Get-MSGraphRoleMembers
 }
 
 # Gets the tenant domains (all of them)
-# Jun 16th 2020
 function Get-MSGraphDomains
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken
     )
     Process
@@ -463,46 +414,8 @@ function Get-MSGraphDomains
     }
 }
 
-# Gets team information
-# Jun 17th 2020
-function Get-MSGraphTeams
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [String]$GroupId
-    )
-    Process
-    {
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "teams/$GroupId" -ApiVersion v1.0
-
-        return $results
-    }
-}
-
-# Gets team's app information
-# Jun 17th 2020
-function Get-MSGraphTeamsApps
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [String]$GroupId
-    )
-    Process
-    {
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API "teams/$GroupId/installedApps?`$expand=teamsAppDefinition" -ApiVersion v1.0
-
-        return $results
-    }
-}
 
 # Gets the authorizationPolicy
-# Sep 18th 2020
 function Get-TenantAuthPolicy
 {
 <#
@@ -539,19 +452,14 @@ function Get-TenantAuthPolicy
         [String]$AccessToken
     )
     Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
+    {      
+        
         $results = Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy" 
-
-
         return $results
     }
 }
 
 # Gets the guest account restrictions
-# Sep 18th 2020
 function Get-TenantGuestAccess
 {
 <#
@@ -583,8 +491,6 @@ function Get-TenantGuestAccess
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
         $policy = Get-TenantAuthPolicy -AccessToken $AccessToken
 
@@ -625,7 +531,6 @@ function Get-TenantGuestAccess
 }
 
 # Sets the guest account restrictions
-# Sep 18th 2020
 function Set-TenantGuestAccess
 {
 <#
@@ -664,16 +569,19 @@ function Set-TenantGuestAccess
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-        
+
         switch($Level)
         {
             "Full"       {$roleId = "a0b1b346-4d3e-4e8b-98f8-753987be4970"; break}
             "Normal"     {$roleId = "10dae51f-b6af-4016-8d66-8c2a99b929b3"; break}
             "Restricted" {$roleId = "2af84b1e-32c8-42b7-82bc-daa82404023b"; break}
         }
-        $body = "{""guestUserRoleId"":""$roleId""}"
+
+        $body = @{
+            "guestUserRoleId" = $roleId
+        }
+        
+        # "{""guestUserRoleId"":""$roleId""}"
 
 
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
@@ -685,7 +593,6 @@ function Set-TenantGuestAccess
 
 
 # Enables Msol PowerShell access
-# Sep 18th 2020
 function Enable-TenantMsolAccess
 {
 <#
@@ -710,17 +617,19 @@ function Enable-TenantMsolAccess
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        $body = '{"blockMsolPowerShell":"false"}'
+
+        $body = @{
+            "blockMsolPowerShell" = "false"
+        }
+
+        # '{"blockMsolPowerShell":"false"}'
 
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
     }
 }
 
 # Disables Msol PowerShell access
-# Sep 18th 2020
 function Disable-TenantMsolAccess
 {
 <#
@@ -745,399 +654,13 @@ function Disable-TenantMsolAccess
     )
     Process
     {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
-        $body = '{"blockMsolPowerShell":"true"}'
+        $body = @{
+            "blockMsolPowerShell" = "true"
+        }
+
+        # '{"blockMsolPowerShell":"true"}'
 
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
-    }
-}
-
-# Get rollout policies 
-# Jan 7th 2021
-function Get-RolloutPolicies
-{
-<#
-    .SYNOPSIS
-    Gets the tenant's rollout policies.
-
-    .DESCRIPTION
-    Gets the tenant's rollout policies.
-
-    .PARAMETER AccessToken
-    Access token used to get tenant's rollout policies.
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Get-AADIntRolloutPolicies
-
-    id                      : cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d
-    displayName             : passthroughAuthentication rollout policy
-    description             : 
-    feature                 : passthroughAuthentication
-    isEnabled               : True
-    isAppliedToOrganization : False
-
-    id                      : 3c89cd34-275c-4cba-8d8e-80338db7df91
-    displayName             : seamlessSso rollout policy
-    description             : 
-    feature                 : seamlessSso
-    isEnabled               : True
-    isAppliedToOrganization : False
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
-        Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies" -ApiVersion beta
-    }
-}
-
-# Get rollout policy groups 
-# Jan 7th 2021
-function Get-RolloutPolicyGroups
-{
-<#
-    .SYNOPSIS
-    Gets groups of the given rollout policy.
-
-    .DESCRIPTION
-    Gets groups of the given rollout policy.
-
-    .PARAMETER AccessToken
-    Access token used to get rollout policy groups.
-
-    .PARAMETER PolicyId
-    Guid of the rollout policy.
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Get-AADIntRolloutPolicyGroups -PolicyId cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d | Select displayName,id
-
-    displayName       id                                  
-    -----------       --                                  
-    PTA SSO Sales     b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3
-    PTA SSO Markering f35d712f-dcdb-4040-a93d-ffd04aff3f75
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [GUID]$PolicyId
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
-        $response=Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies/$($PolicyId.ToString())" -QueryString "`$expand=appliesTo" -ApiVersion beta
-        $response.appliesTo
-    }
-}
-
-# Add groups to rollout policy
-# Jan 7th 2021
-function Add-RolloutPolicyGroups
-{
-<#
-    .SYNOPSIS
-    Adds given groups to the given rollout policy.
-
-    .DESCRIPTION
-    Adds given groups to the given rollout policy. 
-    
-    Status meaning:
-    204 The group successfully added
-    400 Invalid group id
-    404 Invalid policy id
-
-    .PARAMETER AccessToken
-    Access token used to add rollout policy groups.
-
-    .PARAMETER PolicyId
-    Guid of the rollout policy.
-
-    .PARAMETER GroupIds
-    List of group guids.
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Add-AADIntRolloutPolicyGroups -PolicyId cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d -GroupIds b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3,f35d712f-dcdb-4040-a93d-ffd04aff3f75
-
-    id                                   status
-    --                                   ------
-    b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3    204
-    f35d712f-dcdb-4040-a93d-ffd04aff3f75    204
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [GUID]$PolicyId,
-        [Parameter(Mandatory=$True)]
-        [GUID[]]$GroupIds
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
-        # Build the body
-        $requests = @()
-        
-        foreach($GroupId in $GroupIds)
-        {
-            $id = $GroupId.toString()
-            $request = @{
-                "id" =      $id
-                "method" =  "POST"
-                "url" =     "directory/featureRolloutPolicies/$($PolicyId.toString())/appliesTo/`$ref"
-                "body" =    @{ "@odata.id" =    "https://graph.microsoft.com/beta/directoryObjects/$id" }
-                "headers" = @{ "Content-Type" = "application/json" }
-            }
-            $requests += $request
-        }
-
-        $body = @{ "requests" = $requests } | ConvertTo-Json -Depth 5
-
-        $response = Call-MSGraphAPI -AccessToken $AccessToken -API "`$batch" -ApiVersion beta -Method "POST" -Body $body
-
-        if($response.responses[0].body.error.message)
-        {
-            Write-Error $response.responses[0].body.error.message
-        }
-        else
-        {
-            $response.responses | select id,status
-        }
-        
-    }
-}
-
-# Removes groups from the rollout policy
-# Jan 7th 2021
-function Remove-RolloutPolicyGroups
-{
-<#
-    .SYNOPSIS
-    Removes given groups from the given rollout policy.
-
-    .DESCRIPTION
-    Removes given groups from the given rollout policy.
-    
-    Status meaning:
-    204 The group successfully added
-    400 Invalid group id
-    404 Invalid policy id
-
-    .PARAMETER AccessToken
-    Access token used to remove rollout policy groups.
-
-    .PARAMETER PolicyId
-    Guid of the rollout policy.
-
-    .PARAMETER GroupIds
-    List of group guids.
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Remove-AADIntRolloutPolicyGroups -PolicyId cdcb37e1-9c4a-4de9-a7f5-65fdf9f6241d -GroupIds b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3,f35d712f-dcdb-4040-a93d-ffd04aff3f75
-
-    id                                   status
-    --                                   ------
-    b9faf3ba-db5f-4ed2-b9c8-0fd5916de1f3    204
-    f35d712f-dcdb-4040-a93d-ffd04aff3f75    204
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [GUID]$PolicyId,
-        [Parameter(Mandatory=$True)]
-        [GUID[]]$GroupIds
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
-        # Build the body
-        $requests = @()
-        
-        foreach($GroupId in $GroupIds)
-        {
-            $id = $GroupId.toString()
-            $request = @{
-                "id" =      $id
-                "method" =  "DELETE"
-                "url" =     "directory/featureRolloutPolicies/$($PolicyId.toString())/appliesTo/$id/`$ref"
-            }
-            $requests += $request
-        }
-
-        $body = @{ "requests" = $requests } | ConvertTo-Json -Depth 5
-
-        $response = Call-MSGraphAPI -AccessToken $AccessToken -API "`$batch" -ApiVersion beta -Method "POST" -Body $body
-
-        if($response.responses[0].body.error.message)
-        {
-            Write-Error $response.responses[0].body.error.message
-        }
-        else
-        {
-            $response.responses | select id,status
-        }
-        
-    }
-}
-
-# Set rollout policy
-# Jan 7th 2021
-function Remove-RolloutPolicy
-{
-<#
-    .SYNOPSIS
-    Removes the given rollout policy.
-
-    .DESCRIPTION
-    Removes the given rollout policy. The policy MUST be disabled before it can be removed.
-
-    .PARAMETER AccessToken
-    Access token used to get tenant's rollout policies.
-
-    .PARAMETER PolicyId
-    Guid of the rollout policy.
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Remove-AADIntRolloutPolicy -PolicyId 3c89cd34-275c-4cba-8d8e-80338db7df91
-
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
-        [GUID]$PolicyId
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
-        Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies/$($PolicyId.ToString())" -ApiVersion beta -Method DELETE
-    }
-}
-
-# Set rollout policy
-# Jan 7th 2021
-function Set-RolloutPolicy
-{
-<#
-    .SYNOPSIS
-    Creates a new rollout policy or edits existing one.
-
-    .DESCRIPTION
-    Creates a new rollout policy by name or edits existing one with policy id. 
-
-    .PARAMETER AccessToken
-    Access token used to get tenant's rollout policies.
-
-    .PARAMETER PolicyId
-    Guid of the rollout policy.
-
-    .PARAMETER Policy
-    Name of the rollout policy. Can be one of: passwordHashSync, passthroughAuthentication, or seamlessSso
-
-    .PARAMETER Enable
-    Boolean value indicating is the feature enabled or not.
-
-    .PARAMETER EnableToOrganization
-    Boolean value indicating is the feature enabled for the whole organization. Currently not supported.
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Set-AADIntRolloutPolicy -Policy passthroughAuthentication -Enable $True
-
-    @odata.context          : https://graph.microsoft.com/beta/$metadata#directory/featureRolloutPolicies/$entity
-    id                      : 1eec3ce2-5af1-4460-9cc4-1af7a6c15eb1
-    displayName             : passthroughAuthentication rollout policy
-    description             : 
-    feature                 : passthroughAuthentication
-    isEnabled               : True
-    isAppliedToOrganization : False
-
-    .Example
-    Get-AADIntAccessTokenForMSGraph -SaveToCache
-    PS C:\>Set-AADIntRolloutPolicy -PolicyId 1eec3ce2-5af1-4460-9cc4-1af7a6c15eb1 -Enable $False
-
-    @odata.context          : https://graph.microsoft.com/beta/$metadata#directory/featureRolloutPolicies/$entity
-    id                      : 1eec3ce2-5af1-4460-9cc4-1af7a6c15eb1
-    displayName             : passthroughAuthentication rollout policy
-    description             : 
-    feature                 : passthroughAuthentication
-    isEnabled               : True
-    isAppliedToOrganization : False
-
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$False)]
-        [String]$AccessToken,
-        [Parameter(ParameterSetName='id',Mandatory=$True)]
-        [GUID]$PolicyId,
-        [Parameter(Mandatory=$True)]
-        [bool]$Enable,
-        [Parameter(ParameterSetName='type',Mandatory=$True)]
-        [ValidateSet('passwordHashSync','passthroughAuthentication','seamlessSso')]
-        [String]$Policy,
-        [Parameter(Mandatory=$False)]
-        [bool]$EnableToOrganization = $false
-    )
-    Process
-    {
-        # Get from cache if not provided
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $AccessToken -Resource "https://graph.microsoft.com" -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
-
-        try
-        {
-            if($Policy)
-            {
-                $body = @{
-                    "feature" = "$Policy"
-                    "isEnabled" = $Enable 
-                    #"isAppliedToOrganization" = $EnableToOrganization
-                    "displayName" = "$Policy rollout policy"}
-
-                $response = Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies" -ApiVersion beta -Method POST -Body $($body | ConvertTo-Json -Depth 5)
-            }
-            else
-            {
-                $body = @{
-                    "isEnabled" = $Enable
-                    #"isAppliedToOrganization" = $EnableToOrganization 
-                }
-
-                $response = Call-MSGraphAPI -AccessToken $AccessToken -API "directory/featureRolloutPolicies/$($PolicyId.ToString())" -ApiVersion beta -Method PATCH -Body $($body | ConvertTo-Json -Depth 5)
-            }
-        }
-        catch
-        {
-            $error = $_.ErrorDetails.Message | ConvertFrom-Json 
-            Write-Error $error.error.message
-        }
-
-         
-        $response
     }
 }

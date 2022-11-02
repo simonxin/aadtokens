@@ -159,3 +159,12 @@ Sample:
 ### [implicit grant flow](./doc/openid.md)
 
 ### [refresh token](./doc/refreshtoken.md)
+
+
+# Azure Management API
+
+### [Azure Management API usage](./doc/azuremanagementapi.md)
+
+# MS Graph API
+
+### [MS Graph API usage](./doc/msgraphapi.md)

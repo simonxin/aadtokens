@@ -7,14 +7,16 @@ function Call-MSGraphAPI
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$API,
         [Parameter(Mandatory=$False)]
+        [ValidateSet('beta','v1.0')]
         [String]$ApiVersion="beta",
         [Parameter(Mandatory=$False)]
-        [String]$Method="GET",
+        [ValidateSet('Put','Get','Post','Delete','PATCH','update')]
+        [String]$Method="Get",
         [Parameter(Mandatory=$False)]
         $Body,
         [Parameter(Mandatory=$False)]
@@ -22,7 +24,7 @@ function Call-MSGraphAPI
         [Parameter(Mandatory=$False)]
         [String]$QueryString,
         [Parameter(Mandatory=$False)]
-        [int]$MaxResults=1000,
+        [int]$MaxResults=200,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -31,7 +33,29 @@ function Call-MSGraphAPI
 
         # set msgraph api
 
-        $msgraphapi = $script:DefaultAzureCloud[$Cloud]["ms_graph_api"]
+        $msgraphapi = $script:AzureResources[$Cloud]["ms_graph_api"]
+        $clientId = $script:AzureKnwonClients["graph_api"]
+
+
+        if ([string]::IsNullOrEmpty($AccessToken)) {
+            try {
+                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            }
+            catch {
+                write-verbose "no valid MS Graph access token detected in cache. try to request a new access token"
+                get-accesstokenformsgraph -SaveToCache
+                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            }
+            
+        } else {
+
+            # Check if the giving token is expired or not
+            if(Is-AccessTokenExpired($AccessToken))
+            {
+                write-verbose "AccessToken has expired"
+                throw "AccessToken has expired or no invalid token exists"
+            }
+        }
 
 
         # Set the required variables
@@ -42,12 +66,50 @@ function Call-MSGraphAPI
             $Headers=@{}
         }
         $Headers["Authorization"] = "Bearer $AccessToken"
+        
+        # format API
+        $API = $API.TrimStart("/")
 
         # Create the url
-        $url = " $msgraphapi/$($ApiVersion)/$($API)?$(if(![String]::IsNullOrEmpty($QueryString)){"&$QueryString"})"
+        # use /me as ms graph API if not provided
+        if ([string]::IsNullOrEmpty($API)) {
+            $url = "$msgraphapi/$($ApiVersion)/me"
+        } else { 
+
+            # add query string if exists
+            if([String]::IsNullOrEmpty($QueryString)) {
+                $url = "$msgraphapi/$($ApiVersion)/$($API)"
+            } else {
+                $url = "$msgraphapi/$($ApiVersion)/$($API)?$QueryString"
+            }
+        }
+
+
+        write-verbose "call MS Graph API with method $Method"
+
+        if ($body) {
+            write-verbose "FED MS Graph API requests BODY: "
+            foreach($key in $body.keys) {
+                write-verbose "$key`: $($body[$key])"
+            }
+        }
 
         # Call the API
-        $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+        try {
+            $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method  -Headers $Headers -Body ($Body | ConvertTo-Json -Depth 5)
+           
+        }
+        catch {
+
+            $e = $_.Exception
+            $memStream = $e.Response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader($memStream)
+            while ($readStream.Peek() -ne -1) {
+                Write-Error $readStream.ReadLine()
+            }
+            $readStream.Dispose()
+
+        }
 
         # Check if we have more items to fetch
         if($response.psobject.properties.name -match '@odata.nextLink')
@@ -60,7 +122,7 @@ function Call-MSGraphAPI
                 # Return
                 $response.value
                      
-                $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Body $Body -Headers $Headers
+                $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Headers $Headers -Body ($Body | ConvertTo-Json -Depth 5)
                 $items+=$response.value.count
             }
 

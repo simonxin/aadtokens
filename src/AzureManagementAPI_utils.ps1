@@ -1,532 +1,4 @@
 ﻿
-
-# Creates a web session with given cookie header
-function Create-WebSession
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [string]$SetCookieHeader,
-        [Parameter(Mandatory=$True)]
-        [string]$Domain
-    )
-    Process 
-    {
-        
-        
-        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-
-        # login.live.com: MSPRequ=lt=1540361812&co=1&id=N; secure= ;path=/;HTTPOnly=;version=1,uaid=bf4b7f37ec1d4084aa68952b9edebb6b; domain=login.live.com;secure= ;path=/;HTTPOnly= ;version=1,MSPOK=$uuid-f4f5ef25-7343-4de8-84cb-266ea1b47bc2; domain=login.live.com;secure= ;path=/;HTTPOnly= ;version=1
-        if($domain -eq "login.live.com")
-        {
-            $SetCookie = $SetCookieHeader.Split(";,")
-            foreach($Cookie in $SetCookie) 
-            {
-                $name = $Cookie.Split("=")[0].trim()
-                $value = $Cookie.Substring($name.Length+1)
-                switch($name)
-                {
-                    "secure" {}
-                    "path" {}
-                    "HTTPOnly" {}
-                    "domain" {}
-                    "version" {}
-                    default 
-                    {
-                        $webCookie = New-Object System.Net.Cookie
-                        $webCookie.Name = $name
-                        $webCookie.Value = $value
-                        $webCookie.Domain = $Domain
-                        $session.Cookies.Add($webCookie)
-                        Write-Verbose "COOKIE [$Domain]: $webCookie"
-                    }
-                }
-            }
-            
-        }
-        elseif($domain.EndsWith(".sharepoint.com")) # Sharepoint
-        {
-            $SetCookie = $SetCookieHeader.Replace("HttpOnly","|").Split("|")
-            foreach($Cookie in $SetCookie) 
-            {
-                if(![String]::IsNullOrEmpty($Cookie))
-                {
-                    $Cookie = $Cookie.Split(";")[0].trim()
-                    $name = $Cookie.Split("=")[0].trim()
-                    $value = $Cookie.Substring($name.Length+1)
-
-                    # Strip the trailing semi colon
-                    $value=$value.Split(";")[0]
-                
-                    $webCookie = New-Object System.Net.Cookie
-                    $webCookie.Name = $name
-                    $webCookie.Value = $value
-                    $webCookie.Domain = $Domain
-                    $session.Cookies.Add($webCookie)
-                    Write-Verbose "COOKIE [$Domain]: $webCookie"
-                }
-            }
-        }
-        else # login.microsoftonline.com: 
-        {
-            # Split the cookie string
-            $SetCookie = $SetCookieHeader.Replace("HttpOnly","|").Split("|")
-            foreach($Cookie in $SetCookie) 
-            {
-                # Split the individual cookie and remove possible trailing comma
-                $Cookie=($Cookie.Split(";")[0]).Replace(',','')
-                if(![string]::IsNullOrEmpty($Cookie))
-                {
-                    $webCookie = New-Object System.Net.Cookie
-                    $webCookie.Name = $Cookie.Split("=")[0]
-                    $webCookie.Value = $Cookie.Substring($webCookie.Name.Length+1)
-                    $webCookie.Domain = $Domain
-                    $session.Cookies.Add($webCookie)
-                    Write-Verbose "COOKIE [$Domain]: $webCookie"
-                }
-            
-            }
-        }
-        return $session
-    }
-}
-
-# Creates a web session with given cookie header
-function Create-WebSession2
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [System.Security.]$Headers,
-        [Parameter(Mandatory=$True)]
-        [string]$Domain
-    )
-    Process
-    {
-        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-
-        # Split the cookie string
-        $SetCookie = $SetCookieHeader
-        $SetCookie = $SetCookie.Replace("HttpOnly","|").Replace("HTTPOnly","|").Split("|")
-        foreach($Cookie in $SetCookie) 
-        {
-            # Split the individual cookie and remove possible trailing comma
-            $Cookie=($Cookie.Split(";")[0]).Replace(',','')
-            if(![string]::IsNullOrEmpty($Cookie))
-            {
-                $webCookie = New-Object System.Net.Cookie
-                $webCookie.Name = $Cookie.Split("=")[0]
-                $webCookie.Value = $Cookie.Split("=")[1]
-                $webCookie.Domain = $Domain
-                $session.Cookies.Add($webCookie)
-            }
-            
-        }
-        return $session
-    }
-}
-
-# Gets the access token for Azure Management API
-# Uses totally different flow than other access tokens.
-# Oct 23rd 2018
-# TODO: Add support for form based & SAML authentication
-function Get-AccessTokenForAzureMgmtAPI
-{
-<#
-    .SYNOPSIS
-    Gets OAuth Access Token for Azure Management API
-
-    .DESCRIPTION
-    Gets OAuth Access Token for Azure Management API
-
-    .Parameter Credentials
-    Credentials of the user.
-    
-    .Example
-    PS C:\>$cred=Get-Credential
-    PS C:\>Get-AADIntAccessTokenForAzureMgmtAPI -Credentials $cred
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter()]
-        [Switch]$SaveToCache,
-        [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
-    )
-    Process
-    {
-        $accessToken=""
-        $refreshToken=""
-
-        # get portal resource
-        $azportal = $script:AzureResources[$Cloud]["portal"] # azure portal resource
-        $aadloginuri = $script:AzureResources[$Cloud]["aad_login"] # azure login 
-        $aadgraph =  $script:AzureResources[$Cloud]["aad_graph_api"] # azure graph 
-        $azdomain = $azportal.split("//")[-1].toString()
-        $aaddomain = $aadloginuri.split("//")[-1].toString()
-
-
-        # Check if we got credentials
-        if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
-        {
-            # No credentials given, so prompt for credentials
-            $tokens = Prompt-AzureADCredentials
-
-            $accessToken = $tokens["access_token"]
-            $refreshToken = $tokens["refresh_token"]
-        }
-        else
-        {
-            $userName = $Credentials.UserName
-            $password = $credentials.GetNetworkCredential().Password
-
-            # Step 1: Go to portal.azure.com to get cookies and authentication url
-            $headers=@{
-                "Sec-Fetch-Dest" = "script"
-                "Sec-Fetch-Site" = "same-origin"
-                "Sec-Fetch-Mode" = "no-cors"
-                "Referer"="$azportal"
-
-            }
-            $response = Invoke-WebRequest -UseBasicParsing -uri "$azportal/signin/idpRedirect.js/?feature.settingsportalinstance=&feature.refreshtokenbinding=true&feature.usemsallogin=true&feature.snivalidation=true&feature.setsamesitecookieattribute=true&feature.argsubscriptions=&feature.showservicehealthalerts=&idpRedirectCount=0" -Headers $headers
-            $html=$response.Content
-            $s=$html.IndexOf($azportal)
-            $e=$html.IndexOf('"',$s)
-            $url=$html.Substring($s,$e-$s)
-            $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "$azdomain"
-
-            # Step 2: Go to login.microsoftonline.com to get configuration and cookies
-            $response = Invoke-WebRequest -UseBasicParsing -uri $url -Headers @{Cookie="x-ms-gateway-slice=004; stsservicecookie=ests; AADSSO=NANoExtension; SSOCOOKIEPULLED=1"}
-            $html = $response.Content
-
-            $s=$html.IndexOf('$Config=')
-            $e=$html.IndexOf('};',$s+8)
-            $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
-            $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.microsoftonline.com"
-
-            # Step3: Get user information, including Flow Token
-            $userInfo=Get-CredentialType -UserName $userName -FlowToken $config.sFT
-
-            # LOGIN.LIVE.COM
-            if($userInfo.EstsProperties.DomainType -eq 2) # =live account
-            {
-                # Step L1: Go to login.live.com to get configuration and cookies
-                $response = Invoke-WebRequest -UseBasicParsing -uri $config.urlGoToAADError
-                $html = $response.Content
-
-                $s=$html.IndexOf('ServerData =')
-                $e=$html.IndexOf('};',$s+13)
-                $config=$html.Substring($s+13,$e-$s-12) 
-            
-                # ConvertFrom-Json is caseinsensitive so need to use this one
-                $config = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($config)
-
-                $liveWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "login.live.com"
-
-                $sFTTag= [xml]$config.sFTTag
-                $PPFT = $sFTTag.SelectSingleNode("//input[@name='PPFT']").value
-            
-
-                # Step L2: Login to login.live.com
-                $body=@{
-                    "login" = $userName
-                    "loginFmt" = $userName
-                    "i13"="0"
-                    "type"="11"
-                    "LoginOptions"="3"
-                    "passwd"=$password
-                    "ps"="2"
-                    "canary"=""
-                    "ctx"=""
-                    "NewUser"="1"
-                    "fspost"="0"
-                    "i21"="0"
-                    "CookieDisclosure"="1"
-                    "IsFidoSupported"="1"
-                    "hpgrequestid"=""
-                    "PPSX"="Pa"
-                    "PPFT"=$PPFT
-                    "i18"="__ConvergedLoginPaginatedStrings|1,__OldConvergedLogin_PCore|1,"
-                    "i2"="1"
-                    }
-                $headers=@{
-                    "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                    "Upgrade-Insecure-Requests" = "1"
-
-                }
-
-                $response = Invoke-WebRequest -UseBasicParsing -Uri $config.urlPost -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $liveWebSession
-                $html = $response.Content
-
-                # No well formed xml, so need to do some tricks.. First, find the form start and end tags
-                $s=$html.IndexOf("<form")
-                $e=$html.IndexOf("</form>")
-                $form = $html.Substring($s,$e-$s) # Strip the form end tag
-                # End all tags
-                $form=$form.replace('">','"/>')
-                # Add start and end tags
-                $form="<html>$form</html>"
-
-                $html=[xml]$form
-
-                $fmHF = $html.SelectSingleNode("//form[@name='fmHF']").action
-                $code = $html.SelectSingleNode("//input[@name='code']").value
-                $state = $html.SelectSingleNode("//input[@name='state']").value
-
-
-                # Step L3: Login to login.microsoftonline.com with code and state
-                $body = @{
-                    "code" = $code
-                    "state" = $state
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri $fmHF -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $aaddomain
-                $html = $response.Content
-                $s=$html.IndexOf('$Config=')
-                $e=$html.IndexOf('};',$s+8)
-                $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
-            
-
-                # Step L4: Get code, id_token, and state information
-                $body=@{
-                    "LoginOptions"="0"
-                    "flowToken"=$config.sFT
-                    "canary"=$config.canary
-                    "ctx"=$config.sCtx
-                    "hpgrequestid"=(New-Guid).ToString()
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri "$aadloginuri/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $aaddomain
-                $html = [xml]$response.Content
-                $code = $html.SelectSingleNode("//input[@name='code']").value
-                $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
-                $state = $html.SelectSingleNode("//input[@name='state']").value
-                $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
-
-                # Step L5: Sign in to portal.azure.com to get redirect URL
-                $body=@{
-                    "code"= $code
-                    "id_token" = $id_token
-                    "state" = $state
-                    "session_state" = $session_state
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri "$azportal/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
-                $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "$azdomain"
-                $html=$response.Content
-                $s=$html.IndexOf('MsPortalImpl.redirectToUri("')
-                $e=$html.IndexOf('")',$s)
-                $url=$html.Substring($s+28,$e-$s-28) 
-
-                # Step L6: Go to portal.azure.com to get another redirect URL
-                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Get -Headers $headers -WebSession $azureWebSession
-                $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "$azdomain"
-                $html=$response.Content
-                $s=$html.IndexOf($aadloginuri)
-                $e=$html.IndexOf('"',$s)
-                $url=$html.Substring($s,$e-$s)# |ConvertFrom-Json
-
-                # Step L7: Login to login.microsoftonline.com (again) using the received url to get code etc.
-                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Get -ContentType "application/x-www-form-urlencoded" -Headers $headers -WebSession $MSOnlineComwebSession
-                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $aaddomain
-                $html = [xml]$response.Content
-                $code = $html.SelectSingleNode("//input[@name='code']").value
-                $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
-                $state = $html.SelectSingleNode("//input[@name='state']").value
-                $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
-                $url = $html.SelectSingleNode("//form[@name='hiddenform']").action
-
-                # Step L8: Sign in to portal.azure.com to get OAuth token
-                $body=@{
-                    "code"= $code
-                    "id_token" = $id_token
-                    "state" = $state
-                    "session_state" = $session_state
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
-                $azureWebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain "$azdomain"
-            
-            }
-            else # LOGIN.MICROSOFTONLINE.COM
-            {
-
-                # Step M1: Login to login.microsoftonline.com
-                $body=@{
-                    "login" = $userName
-                    "loginFmt" = $userName
-                    "i13"="0"
-                    "type"="11"
-                    "LoginOptions"="3"
-                    "passwd"=$password
-                    "ps"="2"
-                    "flowToken"=$userInfo.FlowToken
-                    "canary"=$config.canary
-                    "ctx"=$config.sCtx
-                    "NewUser"="1"
-                    "fspost"="0"
-                    "i21"="0"
-                    "CookieDisclosure"="1"
-                    "IsFidoSupported"="1"
-                    "hpgrequestid"=(New-Guid).ToString()
-                }
-                $headers=@{
-                    "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                    "Upgrade-Insecure-Requests" = "1"
-
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri "$aadloginuri/common/login" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $aaddomain
-                $html = $response.Content
-                $s=$html.IndexOf('$Config=')
-                $e=$html.IndexOf('};',$s+8)
-                $config=$html.Substring($s+8,$e-$s-7) | ConvertFrom-Json
-                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $aaddomain
-
-                # Step M2: Get code, id_token, and state information
-                $body=@{
-                    "LoginOptions"="0"
-                    "flowToken"=$config.sFT
-                    "canary"=$config.canary
-                    "ctx"=$config.sCtx
-                    "hpgrequestid"=(New-Guid).ToString()
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri "$aadloginuri/kmsi" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $MSOnlineComwebSession
-                $MSOnlineComwebSession = Create-WebSession -SetCookieHeader $response.Headers.'Set-Cookie' -Domain $aaddomain
-                $html = [xml]$response.Content
-                $code = $html.SelectSingleNode("//input[@name='code']").value
-                $id_token = $html.SelectSingleNode("//input[@name='id_token']").value
-                $state = $html.SelectSingleNode("//input[@name='state']").value
-                $session_state = $html.SelectSingleNode("//input[@name='session_state']").value
-
-                # Step M3: Sign in to portal.azure.com
-                $body=@{
-                    "code"= $code
-                    "id_token" = $id_token
-                    "state" = $state
-                    "session_state" = $session_state
-                }
-                $response = Invoke-WebRequest -UseBasicParsing -Uri "$azportal/signin/index/" -Method Post -ContentType "application/x-www-form-urlencoded" -Body $body -Headers $headers -WebSession $azureWebSession
-            }
-
-            # Get the OAuth token
-            $html=$response.Content
-
-            $s=$html.IndexOf('{"oAuthToken":')
-            $e=$html.IndexOf('}}',$s)
-            $token=$html.Substring($s,$e-$s+2) |ConvertFrom-Json
-
-            # Return
-            $accessToken = $token.oAuthToken.authHeader.Split(" ")[1]
-            $refreshToken = $token.oAuthToken.refreshToken
-
-        }
-
-        # Save the tokens to cache
-        if($SaveToCache)
-        {
-            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$aadgraph"] =         $accessToken
-            $Script:refresh_tokens["$ClientId-$aadgraph"] = $refreshToken
-        }
-        else # Return
-        {
-            return $accessToken
-        }
-    }
-}
-
-# Obsolete since Nov 11th 2020
-# Gets the access token for Azure AD IAM API
-# Oct 24th 2018
-# TODO: Add support for form based & SAML authentication
-function Get-AccessTokenForAADIAMAPI2
-{
-<#
-    .SYNOPSIS
-    Gets OAuth Access Token for Azure AD IAM API
-
-    .DESCRIPTION
-    Gets OAuth Access Token for Azure AD IAM API
-
-    .Parameter Credentials
-    Credentials of the user.
-    
-    .Example
-    PS C:\>$cred=Get-Credential
-    PS C:\>Get-AADIntAccessTokenForAADIAMAPI -Credentials $cred
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter()]
-        [System.Management.Automation.PSCredential]$Credentials
-    )
-    Process
-    {
-        $AADAuth = Get-AccessTokenForAzureMgmtAPI -Credentials $Credentials -ExportTokenObject
-        $token = Get-DelegationToken -ExtensionName Microsoft_AAD_IAM -AccessToken $AADAuth
-        return $token.authHeader.Split(" ")[1]
-    }
-}
-
-# Get delegation token for the given extension
-function Get-DelegationToken
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [ValidateSet('Microsoft_AAD_IAM')]
-        [String]$ExtensionName,
-        [Parameter(Mandatory=$False)]
-        $ResourceName="self",
-        [Parameter(Mandatory=$True)]
-        $AccessToken,
-        [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
-    )
-    Process
-    {
-        # Check the expiration
-        if(Is-AccessTokenExpired($AccessToken.access_token))
-        {
-            throw "AccessToken has expired"
-        }
-
-        $resource = $script:AzureResources[$Cloud]["portal"] # azure portal resource
-
-
-        $Headers=@{
-            "x-ms-client-request-id" = (New-Guid).ToString()
-            "x-ms-extension-flags" ='{"feature.advisornotificationdays":"30","feature.advisornotificationpercent":"100","feature.armtenants":"true","feature.artbrowse":"true","feature.azureconsole":"true","feature.checksdkversion":"true","feature.contactinfo":"true","feature.dashboardfilters":"false","feature.enableappinsightsmetricsblade":"true","feature.globalsearch":"true","feature.guidedtour":"true","feature.helpcontentenabled":"true","feature.helpcontentwhatsnewenabled":"true","feature.internalonly":"false","feature.irissurfacename":"AzurePortal_Notifications_PROD","feature.mergecoadmins":"true","feature.metricsv2ga":"true","feature.newsubsapi":"true","feature.npsintervaldays":"90","feature.npspercent":"3.0","feature.npsshowportaluri":"true","feature.sessionvalidity":"true","feature.searchnocache":"true","feature.subscreditcheck":"true","hubsextension_parameterseditor":"true","hubsextension_showpolicyhub":"true","feature.autosettings":"true","feature.azurehealth":"true","feature.blockbladeredirect":"Microsoft_Azure_Resources","feature.browsecuration":"default","feature.collapseblade":"true","feature.dashboardfiltersaddbutton":"false","feature.decouplesubs":"true","feature.disablebladecustomization":"true","feature.disabledextensionredirects":"","feature.enablee2emonitoring":"true","feature.enablemonitoringgroup":"true","feature.enableworkbooks":"true","feature.feedback":"true","feature.feedbackwithsupport":"true","feature.fullwidth":"true","feature.managevminbrowse":"true","feature.mgsubs":"true","feature.newautoscale":"true","feature.newtageditorblade":"true","feature.nps":"true","feature.pinnable_default_off":"true","feature.reservationsinbrowse":"true","feature.reservehozscroll":"true","feature.resourcehealth":"true","feature.seetemplate":"true","feature.showdecoupleinfobox":"true","feature.tokencaching":"true","feature.usealertsv2blade":"true","feature.usemdmforsql":"true","feature.usesimpleavatarmenu":"true","hubsextension_budgets":"true","hubsextension_costalerts":"false","hubsextension_costanalysis":"true","hubsextension_costrecommendations":"true","hubsextension_eventgrid":"true","hubsextension_isinsightsextensionavailable":"true","hubsextension_islogsbladeavailable":"true","hubsextension_isomsextensionavailable":"true","hubsextension_savetotemplatehub":"true","hubsextension_servicenotificationsblade":"true","hubsextension_showservicehealthevents":"true","microsoft_azure_marketplace_itemhidekey":"Citrix_XenDesktop_EssentialsHidden,Citrix_XenApp_EssentialsHidden,AzureProject"}'
-            "x-ms-version" = "5.0.302.5601 (production#c19533145d.181011-0133) Signed"
-            "X-Requested-With" = "XMLHttpRequest"
-            "Referer" = "$resource"
-            "x-ms-client-session-id" = $Script:AADSessionId
-            "Origin" = "$resource"
-            "x-ms-effective-locale"="en.en-us"
-            "Accept-Language" = "en"
-            "User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-            "Cookie" ="browserId=6d84502d-b03c-433c-acec-d87e20449090"
-        }
-
-        $Body=@{
-            "extensionName" = $ExtensionName
-            "portalAuthorization" = $AccessToken.refresh_token
-            "resourceName" = $ResourceName
-            "tenant" = Get-TenantId -AccessToken $AccessToken.access_token
-        }
-
-        write-verbose "post request to get delegation token:" 
-        write-verbose "$resource/api/DelegationToken?feature.tokencaching=true" 
-
-        # Call the API
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "$resource/api/DelegationToken?feature.tokencaching=true" -ContentType "application/json" -Method POST -Body ($Body | ConvertTo-Json) #-Headers $Headers -WebSession $Script:azureWebSession
-
-        # Return
-        $response.value
-    }
-}
-
 # Calls the Azure AD IAM API
 function Call-AzureAADIAMAPI
 {
@@ -551,10 +23,29 @@ function Call-AzureAADIAMAPI
 
         $aadiam = $script:AzureResources[$Cloud]['aad_iam'] # get AAD IAM endpoint
 
-        # Check the expiration
-        if(Is-AccessTokenExpired($AccessToken))
-        {
-            throw "AccessToken has expired"
+        $clientId = $script:AzureKnwonClients['graph_api'] # client ID of azure portal
+        $aadiamapi = $script:AzureKnwonClients["adibizaux"] # aad iam
+
+
+        
+        if ([string]::IsNullOrEmpty($AccessToken)) {
+            try {
+                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $aadiamapi 
+            }
+            catch {
+                write-verbose "no valid AAD IAM access token detected in cache. try to request a new access token"
+                Get-AccessTokenForAADIAMAPI -SaveToCache 
+                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $aadiamapi 
+            }
+            
+        } else {
+
+            # Check the expiration
+            if(Is-AccessTokenExpired($AccessToken))
+            {
+                write-verbose "AccessToken has expired"
+                throw "AccessToken has expired or no invalid token exists"
+            }
         }
 
         $headers=@{
@@ -562,8 +53,33 @@ function Call-AzureAADIAMAPI
             "X-Requested-With" = "XMLHttpRequest"
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
+        
+        $url = "$aadiam/api/$command`?api-version=$Version"
+
+        write-verbose "call AAD IAM API with method $Method"
+
+        if ($body) {
+            write-verbose "FED AAD IAM requests BODY: "
+            foreach($key in $body.keys) {
+                write-verbose "$key`: $($body[$key])"
+            }
+        }
+
         # Call the API
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "$aadiam/api/$command`?api-version=$Version" -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json -Depth 5)
+        try {
+            $response = Invoke-RestMethod -UseBasicParsing -Uri  $url  -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json -Depth 5)
+        }
+        catch {
+
+            $e = $_.Exception
+            $memStream = $e.Response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader($memStream)
+            while ($readStream.Peek() -ne -1) {
+                Write-Error $readStream.ReadLine()
+            }
+            $readStream.Dispose();
+
+        }
 
         # Return
         if($response.StatusCode -eq $null)
@@ -580,73 +96,221 @@ function Call-AzureManagementAPI
     Param(
         [Parameter(Mandatory=$False)]
         $Body,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         $AccessToken,
-        [Parameter(Mandatory=$True)]
-        $Command,
+        [Parameter(ParameterSetName='Command',Mandatory=$True)]
+        [string]$Command,
+        [Parameter(ParameterSetName='resourceId',Mandatory=$true)]
+        [String]$resourceId,  # target resource Id like  /subscriptions/{subscriptionId}}/resourceGroups/{resourcegroup}/providers/Microsoft.Compute/virtualMachines/{vmname}
+        [Parameter(ParameterSetName='resourceId',Mandatory=$false)]
+        [String]$operation,  # opertion like restart
+        [Parameter(ParameterSetName='resourceId',Mandatory=$false)]
+        [String]$apiversion,  # API-version
+        [Parameter(Mandatory=$False)]
+        [ValidateSet('Put','Get','Post','Delete')]
+        [String]$Method="Get",
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
 
-        $azureportal = $script:AzureResources[$Cloud]['portal'] # get AAD IAM endpoint
+        $azuremanagement = $script:AzureResources[$Cloud]['azure_mgmt_api'] # get Azure Management API
+        $clientId = $script:AzureKnwonClients["graph_api"]
+   
 
-        # Check the expiration
-        if(Is-AccessTokenExpired($AccessToken))
-        {
-            throw "AccessToken has expired"
+        if ([string]::IsNullOrEmpty($AccessToken)) {
+            try {
+                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $azuremanagement 
+            }
+            catch {
+                write-verbose "no valid Azure Management access token detected in cache. try to request a new access token"
+                get-accesstokenforazuremanagement -SaveToCache
+                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $azuremanagement 
+            }
+            
+        } else {
+
+            # Check if the giving token is expired or not
+            if(Is-AccessTokenExpired($AccessToken))
+            {
+                write-verbose "AccessToken has expired"
+                throw "AccessToken has expired or no invalid token exists"
+            }
         }
 
+        
         $headers=@{
             "Authorization" = "Bearer $AccessToken"
             "X-Requested-With" = "XMLHttpRequest"
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
+
+        # if the command is not provided, we will need to combine the command based on the provided subscription/resource type/resourcegroup/resource
+        if ([string]::IsNullOrEmpty($Command)) {
+
+
+            $command = $resourceId.trimstart("/")
+            # add resource group in command if it existing
+            if (![string]::IsNullOrEmpty($operation)){
+                
+                $command =  $command+"/"+$operation
+            }
+
+            if ([string]::IsNullOrEmpty($apiversion)){
+                
+                $apiversion = get-azuremanagementapiversion -AccessToken $AccessToken  -resourceId $resourceId
+                write-verbose "use Apiversion $apiversion for resource $resourceId"
+            }
+               $command =  $command+"`?api-version="+$apiversion 
+
+        } else {
+            $command = $command.trimstart("/")
+            # try to fullfil API version
+            if (!($command -like "*api-version=2*")) {
+                $apiversion = get-azuremanagementapiversion -AccessToken $AccessToken -resourceId $Command
+                write-verbose "command has no API version added, Use Apiversion $apiversion for Azure Management API namespace $resourcetype"
+                if ($command.split('?').Length -gt 1){
+                    $command  = $command+"`&api-version="+ $apiversion
+                } else {
+                    $command  = $command+"`?api-version="+ $apiversion
+                }
+            }
+        }
+
+        $url="$azuremanagement/$command"
         # Call the API
-        $response=Invoke-RestMethod -UseBasicParsing -Uri "$azureportal/api/$command" -Method Post -Headers $headers
-    
-        # Return
-        return $response
+        write-verbose "call Azure Management API with method $Method"
+
+        if ($body) {
+            write-verbose "FED Azure Management API requests BODY: "
+            foreach($key in $body.keys) {
+                write-verbose "$key`: $($body[$key])"
+            }
+        }
+
+        # Call the API
+        try {
+            $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body ($Body | ConvertTo-Json -Depth 5)
+        }
+        catch {
+            write-verbose "Azure Management REST API call failed with error details below:"
+            if (!$_.Exception) {
+                $e = $_.Exception
+                $memStream = $e.Response.GetResponseStream()
+                $readStream = New-Object System.IO.StreamReader($memStream)
+                while ($readStream.Peek() -ne -1) {
+                    Write-Error $readStream.ReadLine()
+                }
+                $readStream.Dispose()
+
+            } else {
+                throw $_
+            }
+            return $NULL
+
+        }
+
+        write-verbose "Azure Management REST API call is successful with a response code 200"
+        if ($response.value) {
+            return $response.value
+        } else {
+            return $NULL
+        }
        
     }
 }
 
 
 
-# Prompts for credentials and gets the access token
-# Supports MFA, federation, etc.
-# Jul 11th 2019
-function Prompt-AzureADCredentials
+
+# get the lastest API version based on resource namespace and resource type
+
+# Calls the Azure Management API
+function get-azuremanagementapiversion
 {
     [cmdletbinding()]
     Param(
+        [Parameter(Mandatory=$True)]
+        $AccessToken,
+        [Parameter(ParameterSetName='command',Mandatory=$True)]
+        $command,
+        [Parameter(ParameterSetName='resourceId',Mandatory=$true)]
+        [String]$resourceId, 
+        [Parameter(ParameterSetName='resourceId',Mandatory=$false)]
+        [String]$operation,  
+        [Parameter(Mandatory=$false)]
+        [string]$apiversion="2021-04-01",
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
-        # Set variables
-        $auth_redirect="https://portal.azure.com/signin/index/"
-        $url="https://portal.azure.com/"
 
-        # Create the form
-        $form = Create-LoginForm -Url $url -auth_redirect $auth_redirect
-
-        # Show the form and wait for the return value
-        if($form.ShowDialog() -ne "OK") {
-            # Dispose the control
-            $form.Controls[0].Dispose()
-            Write-Verbose "Login cancelled"
-            return $null
+        $azuremanagement = $script:AzureResources[$Cloud]['azure_mgmt_api'] # get Azure Management API
+        
+              
+        $headers=@{
+            "Authorization" = "Bearer $AccessToken"
+            "X-Requested-With" = "XMLHttpRequest"
+            "x-ms-client-request-id" = (New-Guid).ToString()
         }
 
-        # Dispose the control
-        $form.Controls[0].Dispose()
+        # if command is used, need to split the command to get subscription Id and resource namespace
+        if (![string]::IsNullOrEmpty($command)) {
+            $resourceIditems = extract-azureresourceID $command
 
-        # Get the access token from script scope variable
-        $accessToken = $script:accessToken
-        $script:accessToken = $null
+        } else {
 
-        # Return
-        $accessToken
+            $resourceIditems = extract-azureresourceID $resourceId
+        }
+        
+        $subscriptionID = $resourceIditems.subscriptionID
+        $resourceprovider = $resourceIditems.resourceprovider
+        $resourcetype = $resourceIditems.resourcetype
+
+
+        # if no subsription Id provided, try to get API with tenant scope
+        if (![string]::IsNullOrEmpty($subscriptionId)) {
+
+            $url="$azuremanagement/subscriptions/$subscriptionID/providers/$resourceprovider`?api-version=$apiversion"
+        } else {
+            $url="$azuremanagement/providers/$resourceprovider`?api-version=$apiversion"
+        }
+
+        Write-Verbose "query API version from $url"
+        $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method GET -Headers $headers
+
+        # Call the API
+        try {
+            $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method GET -Headers $headers
+        }
+        catch {
+            $e = $_.Exception
+            $memStream = $e.Response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader($memStream)
+            while ($readStream.Peek() -ne -1) {
+                Write-Error $readStream.ReadLine()
+            }
+            $readStream.Dispose();
+        }
+    
+        if ($response.resourcetypes) {
+
+            $currenttype =  $response.resourcetypes | where {$_.resourcetype -like $resourcetype}
+            # return first available version
+            if ( $currenttype ) {
+                return $currenttype.apiVersions[0]
+            } else {
+
+                # try the API version of the root resource type
+                $roottype = $resourcetype.Split("/")[0]
+                $currenttype =  $response.resourcetypes | where {$_.resourcetype -like $roottype}
+                return $currenttype.apiVersions[0]
+            }
+        } else {
+            return $NULL
+        }
+        
     }
 }

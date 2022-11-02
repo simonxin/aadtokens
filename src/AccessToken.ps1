@@ -597,7 +597,6 @@ function Get-AccessTokenForOneDrive
 }
 
 # Gets an access token for Azure Core Management
-# May 29th 2020
 function Get-AccessTokenForAzureCoreManagement
 {
 <#
@@ -660,14 +659,83 @@ function Get-AccessTokenForAzureCoreManagement
     Process
     {
         $resource = $script:AzureResources[$Cloud]["windows_net_mgmt_api"] # get windows core management api resource
-        $clientId = $script:AzureKnwonClients["office"]
-     ##   $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
+       ## $clientId = $script:AzureKnwonClients["office"]
+        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
+        Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+
+# Gets an access token for Azure Management
+function Get-AccessTokenForAzureManagement
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure Management
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure Management
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForAzureManagement -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+        $resource = $script:AzureResources[$Cloud]["azure_mgmt_api"] # get windows core management api resource
+     ##   $clientId = $script:AzureKnwonClients["office"]
+        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 
 # Gets an access token for SPO
-# Jun 10th 2020
 function Get-AccessTokenForSPO
 {
 <#
@@ -1033,8 +1101,292 @@ function Get-AccessTokenForCloudShell
     }
 }
 
+
+# Gets an access token for Azure key vault
+function Get-AccessTokenForkeyvault
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure key Vault
+
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure key Vault
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForCloudShell -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+
+        $resource = $script:AzureResources[$Cloud]["keyvault"] # get azure key vault resource Uri
+        $clientId = $script:AzureKnwonClients["graph_api"]
+
+        Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+
+
+
+# Gets an access token for Azure storage
+function Get-AccessTokenForstorage
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure storage
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure storage
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForCloudShell -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+
+        $resource = $script:AzureResources[$Cloud]["storage"] # get azure storage resource Uri
+        $clientId = $script:AzureKnwonClients["graph_api"] 
+
+        Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+
+
+# Gets an access token for Azure Cosmos DB
+function Get-AccessTokenForCosmos
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure Cosmos DB
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure Cosmos DB
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForCloudShell -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+
+        $resource = $script:AzureResources[$Cloud]["cosmos"] # get azure cosmos DB resource 
+        $clientId = $script:AzureKnwonClients["graph_api"] 
+
+        Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+
+
+# Gets an access token for Azure PowerBI
+function Get-AccessTokenForPowerBI
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for Azure Power BI service
+    .DESCRIPTION
+    Gets OAuth Access Token for Azure Power BI service
+
+    .Parameter Credentials
+    Credentials of the user.
+
+    .Parameter PRT
+    PRT token of the user.
+
+    .Parameter SAML
+    SAML token of the user. 
+
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+
+    .Parameter KerberosTicket
+    Kerberos token of the user. 
+    
+    .Parameter UseDeviceCode
+    Use device code flow.
+    
+    .Parameter UserPrincipalName
+    UserPrincipalName of the user of Kerberos token
+    
+    .Example
+    Get-AADIntAccessTokenForOneOfficeApps
+    
+    .Example
+    PS C:\>$cred=Get-Credential
+    PS C:\>Get-AADIntAccessTokenForCloudShell -Credentials $cred
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+
+        $resource = $script:AzureResources[$Cloud]["powerBI"] # get azure powerBI resource Uri
+        $clientId = $script:AzureKnwonClients["graph_api"] 
+        Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+    }
+}
+
+
 # Gets an access token for Teams
-# Oct 3rd 2020
 function Get-AccessTokenForTeams
 {
 <#
@@ -1157,7 +1509,7 @@ function Get-AccessTokenForAADIAMAPI
         [String]$RedirectUri,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
-        [switch]$forcemfa,
+        [switch]$forcemfa=$true, # force to use MFA for AAD IAM accessing
         [switch]$SaveToCache,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
@@ -1168,7 +1520,7 @@ function Get-AccessTokenForAADIAMAPI
     {
         # First get the access token for AADGraph
  
-        $clientId = $script:AzureKnwonClients['office'] # client ID of azure portal
+        $clientId = $script:AzureKnwonClients['graph_api'] # client ID of azure portal
         $resource = $script:AzureResources[$Cloud]["azure_mgmt_api"] # get AAD graph resource based on cloud
         $aadiamapi = $script:AzureKnwonClients["adibizaux"] # aad iam
         # $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c"  which is office client app
@@ -1710,7 +2062,6 @@ function Get-Idtoken
 
 
 # Gets the access token for provisioning API and stores to cache
-# Refactored Jun 8th 2020
 function Get-AccessToken
 {
     [cmdletbinding()]
@@ -2015,14 +2366,13 @@ function Get-AccessTokenWithRefreshToken
             $response=Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body            
         }
         catch {
-            $errormessage = $Error[0].ErrorDetails.Message | convertfrom-json
-
-            # raise MFA request if the returned error code is 50076/50078/50079
-            if ($errormessage.error_codes -contains "50076" -or $errormessage.error_codes -contains "50078" -or $errormessage.error_codes -contains "50079" ) {
-                Write-Error "request access token need MFA. Please add force -ForceMFA at the end of your command and try again" 
-            } else {
-                Write-Error  $errormessage.error_description 
+            $e = $_.Exception
+            $memStream = $e.Response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader($memStream)
+            while ($readStream.Peek() -ne -1) {
+                Write-Error $readStream.ReadLine()
             }
+            $readStream.Dispose()
         }
  
 
@@ -2086,7 +2436,7 @@ function Get-AccessTokenUsingDeviceCode
         }
 
         # Invoke the request to get device and user codes
-        $authResponse = Invoke-RestMethod -UseBasicParsing -Method Post -Uri " $aadlogin/$tenant/oauth2/devicecode?api-version=1.0" -Body $body
+        $authResponse = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$aadlogin/$tenant/oauth2/devicecode?api-version=1.0" -Body $body
 
         Write-Host $authResponse.message
 
@@ -2194,7 +2544,7 @@ function Get-AccessTokenwithclientcredentail
 
         # Invoke the request to get device and user codes
         $contentType = "application/x-www-form-urlencoded"
-        $Response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri " $aadlogin/$tenant/oauth2/v2.0/token"  -ContentType $contentType -Body $body
+        $Response = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$aadlogin/$tenant/oauth2/v2.0/token"  -ContentType $contentType -Body $body
 
         # If we got response, all okay!
         if($response)
@@ -2350,7 +2700,6 @@ function Get-AccessTokenWithAuthorizationCode
 }
 
 # Gets the access token using device SAML token
-# Feb 18th 2021
 function Get-AccessTokenWithDeviceSAML
 {
     [cmdletbinding()]
@@ -2410,10 +2759,7 @@ function Get-AccessTokenWithDeviceSAML
 }
 
 # Logins to SharePoint Online and returns an IdentityToken
-# TODO: Research whether can be used to get access_token to AADGraph
-# TODO: Add support for Google?
 # FIX: Web control stays logged in - clear cookies somehow?
-# Aug 10th 2018
 function Get-IdentityTokenByLiveId
 {
 <#
@@ -2467,7 +2813,6 @@ function Get-IdentityTokenByLiveId
 }
 
 # Tries to generate access token using cached AADGraph token
-# Jun 15th 2020
 function Get-AccessTokenUsingAADGraph
 {
     [cmdletbinding()]
@@ -2507,7 +2852,7 @@ function Get-AccessTokenUsingAADGraph
     }
 }
 
-# Apr 22th 2022
+
 function Unprotect-EstsAuthPersistentCookie
 {
 <#

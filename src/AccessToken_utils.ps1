@@ -121,26 +121,30 @@ $refresh_tokens=@{}
 $AzureResources = @{
     "AzureChina" = @{
         "suffixes" = @{
-            "acrLoginServerEndpoint" = '.azurecr.io'
-            "attestationEndpoint" = '.attest.azure.net'
-            "azureDatalakeAnalyticsCatalogAndJobEndpoint"= '.azuredatalakeanalytics.net'
-            "azureDatalakeStoreFileSystemEndpoint" = '.azuredatalakestore.net'
-            "keyvaultDns" = '.vault.azure.net'
-            "mariadbServerEndpoint" = '.mariadb.database.azure.com'
-            "mhsmDns" = '.managedhsm.azure.net'
-            "mysqlServerEndpoint" = '.mysql.database.azure.com'
-            "postgresqlServerEndpoint" = '.postgres.database.azure.com'
-            "sqlServerHostname" =  '.database.windows.net'
-            "storageEndpoint"  = '.core.windows.net'
-            "storageSyncEndpoint"= '.afs.azure.net'
-            "synapseAnalyticsEndpoint" = '.dev.azuresynapse.net'
-            "cloudAppEndpoint"= '.cloudapp.azure.com'
-            "trafficManagerEndpoint" = '.trafficmanager.net'
+            "acrLoginServerEndpoint" = '.azurecr.cn'
+       ##    "attestationEndpoint" = '.attest.azure.cn'
+       ##    "azureDatalakeAnalyticsCatalogAndJobEndpoint"= '.azuredatalakeanalytics.cn'
+       ##     "azureDatalakeStoreFileSystemEndpoint" = '.azuredatalakestore.net'
+            "keyvaultDns" = '.vault.azure.cn'
+            "mariadbServerEndpoint" = '.mariadb.database.chinacloudapi.cn'
+        ##     "mhsmDns" = '.managedhsm.azure.net'
+            "mysqlServerEndpoint" = '.mysql.database.chinacloudapi.cn'
+            "postgresqlServerEndpoint" = '.postgres.database.chinacloudapi.cn'
+            "sqlServerHostname" =  '.database.chinacloudapi.cn'
+            "storageEndpoint"  = '.core.chinacloudapi.cn'
+            "storageSyncEndpoint"= '.file.core.chinacloudapi.cn'
+            "AnalyticsServiceEndpoint" = '.asazure.chinacloudapi.cn'
+            "cloudAppEndpoint"= '.chinacloudapp.cn'
+            "trafficManagerEndpoint" = '.trafficmanager.cn'
             "hdinsight_suffix" =     ".azurehdinsight.cn"
             "compute"   =            ".chinacloudapp.cn"
             "sharepoint" =           ".sharepoint.cn"
         }
-        "onenote" =              "https://api.partner.office365.cn"
+        "keyvault" =  "https://vault.azure.cn/"
+        "storage"  =   "https://storage.azure.com/"
+        "Cosmon" = "https://cosmos.azure.cn"
+        "powerBI"= "https://analysis.chinacloudapi.cn/powerbi/api/"
+        "onenote" =              "https://api.partner.office365.cn"        
         "admin" =                "https://portal.partner.microsoftonline.cn"       
         "portal" =               "https://portal.azure.cn"
         "aad_login" =            "https://login.partner.microsoftonline.cn"
@@ -155,17 +159,17 @@ $AzureResources = @{
         "gallery" = 'https://gallery.chinacloudapi.cn/'
         "logAnalytics" = 'https://api.loganalytics.azure.cn'
         "sqlManagement" = 'https://management.core.chinacloudapi.cn:8443/'
-        "synapseAnalytics" =   'https://dev.azuresynapse.net'
+     ##   "synapseAnalytics" =   'https://dev.azuresynapse.net'
         "officeapps" =           "https://officeapps.live.com"
         "outlook" =              "https://partner.outlook.cn"
         "webshellsuite" =        "https://webshell.suite.partner.microsoftonline.cn"
         "sara" =                 "https://api.partner.office365.cn"
-        "office_mgmt" =          "https://manage.office.com"
+        "office_mgmt" =          "https://manage.office365.cn/"
         "sql_database" =         "https://management.database.chinacloudapi.cn"
-        "msmamservice" =         "https://msmamservice.api.application"
-        "spacesapi" =            "https://api.spaces.skype.com"
-        "intune" =               "https://endpoint.microsoftonline.cn"
-        "cloudwebappproxy" =     "https://proxy.cloudwebappproxy.net/registerapp"
+      ##   "msmamservice" =         "https://msmamservice.api.application"
+      ##  "spacesapi" =            "https://api.spaces.skype.com"
+      ##  "intune" =               "https://api.manage.microsoftonline.cn/"
+      ##  "cloudwebappproxy" =     "https://proxy.cloudwebappproxy.net/registerapp"
         "mdm" =                  "https://enrollment.manage.microsoftonline.cn/"
         "devicemanagementsvc" =  "enterpriseregistration.partner.microsoftonline.cn"
         "mip" =                  "https://syncservice.o365syncservice.com"
@@ -193,6 +197,10 @@ $AzureResources = @{
             "compute"   =            ".cloudapp.net"
             "sharepoint" =           ".sharepoint.com"
         }
+        "keyvault" =  "https://vault.azure.com/"
+        "storage"  =   "https://storage.azure.com/"
+        "Cosmon" = "https://cosmos.azure.com"
+        "powerBI" = "https://analysis.windows.net/powerbi/api/"
         "onenote" =              "https://onenote.com"        
         "admin" =                "https://admin.microsoft.com"
         "portal" =               "https://portal.azure.com"
@@ -220,17 +228,49 @@ $AzureResources = @{
         "msmamservice" =         "https://msmamservice.api.application"
         "spacesapi" =            "https://api.spaces.skype.com"
         "autodiscover"  =        "https://autodiscover-s.outlook.com"
-        "intune" =               "https://endpoint.microsoft.com"
+        "intune" =               "https://api.manage.microsoft.com/"
         "mdm" =                  "https://enrollment.manage.microsoft.com/"
         "devicemanagementsvc" =  "enterpriseregistration.windows.net"
         "mip" =                  "https://syncservice.o365syncservice.com"  
         "aad_iam" =              "https://main.iam.ad.ext.azure.com"
         "o365exo" = "https://ps.outlook.com"
-
     }
 
     
 }
+
+# get known client
+function Get-AADknownclient
+{
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$clientname
+    )
+    Process
+    {
+        if([String]::IsNullOrEmpty($clientname)){
+           return $AzureKnwonClients
+        } else {
+            if ($AzureKnwonClients[$clientname]) {
+
+               $redirectUri = Get-AuthRedirectUrl -ClientId $AzureKnwonClients[$clientname]
+
+               return @{
+                clientId = $AzureKnwonClients[$clientname]
+                clientname = $clientname
+                redirectUri =  $redirectUri 
+               }
+
+            } else {
+                return $null
+            }
+    
+       
+        }
+
+    }
+}
+
 
 
 # get default cloud instance
@@ -1077,7 +1117,13 @@ function Get-OAuthInfoUsingSAML
         }
         catch
         {
-            Throw ($_.ErrorDetails.Message | convertfrom-json).error_description
+            $e = $_.Exception
+            $memStream = $e.Response.GetResponseStream()
+            $readStream = New-Object System.IO.StreamReader($memStream)
+            while ($readStream.Peek() -ne -1) {
+                Write-Error $readStream.ReadLine()
+            }
+            $readStream.Dispose();
         }
 
         return $jsonResponse
@@ -1149,7 +1195,13 @@ function Get-OAuthInfo
             }
             catch
             {
-                Throw ($_.ErrorDetails.Message | convertfrom-json).error_description
+                $e = $_.Exception
+                $memStream = $e.Response.GetResponseStream()
+                $readStream = New-Object System.IO.StreamReader($memStream)
+                while ($readStream.Peek() -ne -1) {
+                    Write-Error $readStream.ReadLine()
+                }
+                $readStream.Dispose();
             }
         }
         else
@@ -2165,7 +2217,6 @@ function Get-TenantDomains
 }
 
 # Gets the auth_redirect url for the given client and resource
-# Aug 12th 2021
 function Get-AuthRedirectUrl
 {
 
@@ -2173,7 +2224,7 @@ function Get-AuthRedirectUrl
     Param(
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$Resource,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
@@ -2184,6 +2235,7 @@ function Get-AuthRedirectUrl
         # use nativeclient as default redirect Uri 
 
         $azportal=$AzureResources[$Cloud]["portal"]
+        $mdm=$AzureResources[$Cloud]["mdm"]
 
         $redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
 
@@ -2210,7 +2262,7 @@ function Get-AuthRedirectUrl
         {
             $redirect_uri = "https://mysignins.microsoft.com"
         }
-        elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne "https://enrollment.manage.microsoft.com/") # Azure AD Join
+        elseif($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -ne $mdm) # Azure AD Join
         {
             $redirect_uri = "ms-aadj-redir://auth/drs"
         }

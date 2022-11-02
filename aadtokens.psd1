@@ -64,18 +64,26 @@ RequiredModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-cache","get-accesstokenfromcache","Get-OpenIDConfiguration","get-DualFedTenant","Get-TenantID",
-"Get-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureMgmtAPI",
+"Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureMgmtAPI",
 "Get-AccessTokenForEXO","Get-AccessTokenForEXOPS","Get-AccessTokenForIntuneMDM","Get-AccessTokenForMip","Get-AccessTokenForMSGraph","Get-AccessTokenForOfficeApps",
-"Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo",
-"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken"
+"Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo","Get-AADknownclient",
+"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken",
+"call-AzureManagementAPI","Call-AzureAADIAMAPI","Get-AADConditionalPolicies","Is-ExternalUserUnique","Get-AzureRBACroles","Get-TenantAuthenticationMethods","Get-TenantApplications","Get-AADConnectStatus",
+"Call-MSGraphAPI","Get-AzureSignInLog","Get-AzureAuditLog","Get-MSGraphUser","Get-MSGraphUserAppRoleAssignments","Get-MSGraphUserOwnedDevices","Get-MSGraphUserRegisteredDevices",
+"Get-MSGraphUserLicenseDetails","Get-MSGraphUserMemberOf","Get-MSGraphUserDirectReports","Get-MSGraphGroupOwners","Get-MSGraphGroupMembers","Get-MSGraphRoles","Get-MSGraphRoleMembers",
+"Get-MSGraphDomains","Get-TenantAuthPolicy","Get-TenantGuestAccess","Set-TenantGuestAccess","Enable-TenantMsolAccess","Disable-TenantMsolAccess"
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-cache","get-accesstokenfromcache","Get-OpenIDConfiguration","get-DualFedTenant","Get-TenantID",
-"Get-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureMgmtAPI",
+"Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureMgmtAPI",
 "Get-AccessTokenForEXO","Get-AccessTokenForEXOPS","Get-AccessTokenForIntuneMDM","Get-AccessTokenForMip","Get-AccessTokenForMSGraph","Get-AccessTokenForOfficeApps",
-"Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo",
-"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken"
+"Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo","Get-AADknownclient",
+"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken",
+"call-AzureManagementAPI","Call-AzureAADIAMAPI","Get-AADConditionalPolicies","Is-ExternalUserUnique","Get-AzureRBACroles","Get-TenantAuthenticationMethods","Get-TenantApplications","Get-AADConnectStatus",
+"Call-MSGraphAPI","Get-AzureSignInLog","Get-AzureAuditLog","Get-MSGraphUser","Get-MSGraphUserAppRoleAssignments","Get-MSGraphUserOwnedDevices","Get-MSGraphUserRegisteredDevices",
+"Get-MSGraphUserLicenseDetails","Get-MSGraphUserMemberOf","Get-MSGraphUserDirectReports","Get-MSGraphGroupOwners","Get-MSGraphGroupMembers","Get-MSGraphRoles","Get-MSGraphRoleMembers",
+"Get-MSGraphDomains","Get-TenantAuthPolicy","Get-TenantGuestAccess","Set-TenantGuestAccess","Enable-TenantMsolAccess","Disable-TenantMsolAccess"
 )
 
 # Variables to export from this module
