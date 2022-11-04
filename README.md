@@ -38,7 +38,7 @@ You may check the current cloud instance by command:
 
 You will see cloud instance and the common resource endpoint:
 
-![](./doc/powershell1.png)
+![image](./doc/powershell1.png)
 
 If the current required cloud is not the expected one, you can set default cloud by command:
 
@@ -75,7 +75,7 @@ use verbose switch in command when you want to see the detailed process for oaut
 
 Sample logs:
 
-![](./doc/verbose.png)
+![image](./doc/verbose.png)
 
 
 ## savetocache
@@ -87,7 +87,7 @@ Sample logs:
 
 Output as below:
 
-![](./doc/savetocache.png)
+![image](./doc/savetocache.png)
 
 
 2.You will get the stored token list from cache. 
@@ -98,7 +98,7 @@ Be default, savetocache flag will request refresh token which can be used to ren
 	Get-cache
 
 Output as below:
-![](./doc/savetocache.png)
+![image](./doc/savetocache.png)
 
 
 3.Get access token from cache 
