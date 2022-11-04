@@ -38,7 +38,7 @@ You may check the current cloud instance by command:
 
 You will see cloud instance and the common resource endpoint:
 
-![image](./doc/powershell1.png)
+![image](https://raw.githubusercontent.com/simonxin/aadtokens/main/doc/powershell1.png)
 
 If the current required cloud is not the expected one, you can set default cloud by command:
 
