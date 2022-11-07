@@ -1,4 +1,4 @@
-# ⚡ Azure AD oauth2 tokens and REST API calls aka AADTokens  
+# ⚡ Azure AD oauth2 tokens and REST API calls, aka AADTokens  
 
 Usually oauth2 token is used for secure azure resource accessing. However, it is not flexiable to test and validation oauth2 auth flow due to the reasons:
 
@@ -50,7 +50,7 @@ If the current required cloud is not the expected one, you can set default cloud
 
 ## Cmdlets reference
 	
-### [list](./doc/commands.csv)
+### [full commands references](./doc/commands.csv)
 
 
 # Sample usage
