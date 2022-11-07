@@ -1,13 +1,16 @@
-# Introduction 
+# ⚡ Azure AD oauth2 tokens and REST API calls aka AADTokens  
 
-Usually oauth2 token is used for secure azure resource accessing. However, it is not flexiable to get oauth2 token due to the reasons:
+Usually oauth2 token is used for secure azure resource accessing. However, it is not flexiable to test and validation oauth2 auth flow due to the reasons:
 
 - different endpoints are used when the target cloud is not Azure Public but naitonal cloud like Azure China
 - different oauth2 flow need different parameters
 - different redirect_uri need to used when using first-party application to access jwt token
-- during troubleshooting, need an easy way to simulate whole process
+- Need code debuging when do simulatation and troubleshooting
+- validation REST API call or MS Graph call in postman need to request/refresh access token and construct the full request url which is not easy. 
 
 This Powershell modules is used for Azure AD oauth2 token generation which will simply the request process and address the above concerns.
+By providing the 
+
 Each command in the module support debug log output by adding "-verbose" in the command. 
  
 # Get starting
@@ -25,7 +28,7 @@ To install the module in powershell (need to run in administrator):
 
 	./installaadtokens.ps1
 	# you can then import module directly in powershell
-	import-module aadtoken
+	import-module aadtokens
 
 You can get all supported commands by running command: 
 	$(get-module aadtokens).ExportedCommands
