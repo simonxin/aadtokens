@@ -1460,6 +1460,8 @@ function Prompt-Credentials
         [Parameter(Mandatory=$false)]
         [String]$scope,
         [Parameter(Mandatory=$false)]
+        [String]$prompt="login",  # values like login, consent, admin_consent, none      
+        [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
 
     )
@@ -1500,9 +1502,9 @@ function Prompt-Credentials
         # Create the url
         $request_id=(New-Guid).ToString()
         if(![string]::IsNullOrEmpty($Resource)) {
-            $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=$encodescope"
+            $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
         } else {
-            $url="$aadloginuri/$Tenant/oauth2/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=login&scope=$encodescope"
+            $url="$aadloginuri/$Tenant/oauth2/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
         }
     
         write-verbose "oauth Url: $url"
@@ -2303,3 +2305,65 @@ function Get-AuthRedirectUrl
         return $redirect_uri
     }
 }
+
+
+# request admin consent
+function Get-AdminConsent
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$ClientId,
+        [Parameter(Mandatory=$true)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$true)]
+        [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$scope,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+        if([String]::IsNullOrEmpty($scope))        
+        {
+            $scope = "openid profile"
+        }
+        $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
+     
+
+        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
+
+        # Set variables
+        $auth_redirect= $RedirectUri
+        $client_id=     $ClientId # Usually should be graph_api
+
+        if ($auth_redirect -like "urn:ietf:wg:oauth:2.0:oob*") {
+            $auth_redirect=[System.Web.HttpUtility]::UrlEncode($auth_redirect)
+        }
+
+        $url="$aadloginuri/$Tenant/v2.0/adminconsent?client_id=$client_id&redirect_uri=$auth_redirect&scope=$encodescope&state=12345"
+    
+        write-verbose "admin consent Url: $url"
+       
+        $output = Show-OAuthWindow -Url $url
+
+        # return null if the output contains error
+        if(![string]::IsNullOrEmpty($output["error"])){
+            Write-Error $output["error"]
+            Write-Error $output["error_uri"]
+            Write-Error $output["error_description"]     
+
+            $form.Controls[0].Dispose()
+            return $null
+           
+        } else {
+
+            $result = $output 
+            return $result
+
+        }
+
+    }
+}
+

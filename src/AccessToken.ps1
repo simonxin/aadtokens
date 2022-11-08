@@ -2103,6 +2103,8 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$PfxFileName,
         [Parameter(Mandatory=$False)]
+        [string]$prompt="login",
+        [Parameter(Mandatory=$False)]
         [securestring]$PfxPassword,
         [Parameter(Mandatory=$False)]
         [string]$TransportKeyFileName,
@@ -2193,7 +2195,7 @@ function Get-AccessToken
                 #)  
                 #{
 
-                $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope
+                $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt
                 
             }
             else

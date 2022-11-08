@@ -155,14 +155,13 @@ Sample:
 
 ### [device code flow](./doc/devicecode.md)
 
-### [client credential flow](./doc/clientcredential.md)
+### [client credential flow](./doc/clientcreds.md)
 
 ### [On Behalf Of flow](./doc/obo.md)
 
 ### [implicit grant flow](./doc/openid.md)
 
 ### [refresh token](./doc/refreshtoken.md)
-
 
 # Azure Management API
 

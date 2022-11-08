@@ -664,3 +664,206 @@ function Disable-TenantMsolAccess
         Call-MSGraphAPI -AccessToken $AccessToken -API "policies/authorizationPolicy/authorizationPolicy" -Method "PATCH" -Body $body
     }
 }
+
+
+# get app service principals
+function get-MSGraphServicePrincipal
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$false)]
+        [String]$ObjectId, # service principal objectId
+        [Parameter(Mandatory=$false)]
+        [String]$appid  # application Id
+    )
+    Process
+    {
+
+        
+
+        # filter by appid if provided 
+        if ([String]::IsNullOrEmpty($clientId)){
+             # Url encode for external users, replace # with %23
+             $filter = "`$filter=appId eq '$appid'"
+             $API="/servicePrincipals"
+        } elseif([String]::IsNullOrEmpty($id)) {
+            $API="/servicePrincipals/$ObjectId"
+            $filter = $null
+        } else {
+            $API="/servicePrincipals"
+            $filter =$null
+        }
+        $ApiVersion = "v1.0"
+
+        try {
+            $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $filter
+            return $results
+        }
+        catch {
+            write-error "failed to call msgraph. please check if the right clientId or ObjectId are provided"
+            return $null
+        }
+    }
+}
+
+
+
+# get user consents permissions for giving user
+function get-MSGraphoauth2permissions
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(ParameterSetName='UserPrincipalName',Mandatory=$True)]
+        [String]$UserPrincipalName,
+        [Parameter(ParameterSetName='clientId',Mandatory=$True)]
+        [String]$clientId,
+        [Parameter(ParameterSetName='clientId',Mandatory=$false)]
+        [switch]$adminconsentonly
+    )
+    Process
+    {
+
+        # try to get user consent if user name provided
+        if (![String]::IsNullOrEmpty($UserPrincipalName)){
+             # Url encode for external users, replace # with %23
+            $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
+            $API = "/users/$UserPrincipalName/oauth2PermissionGrants"
+            $filter = $NULL
+        } else {
+            $API = "/oauth2PermissionGrants"
+            if ($adminconsentonly) {
+                $filter = "`$filter=clientId eq '$clientId' AND consentType eq 'AllPrincipals'"
+            } else {
+                $filter = "`$filter=clientId eq '$clientId'"
+            }
+        }
+        $ApiVersion = "v1.0"
+
+        try {
+            $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $filter
+            return $results
+        }
+        catch {
+            write-error "failed to call msgraph. please check if the right UserPrincipalName or clientId are provided"
+            return $null
+        }
+    }
+}
+
+
+# grant user consents permissions for target application
+function add-MSGraphUserconsent
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$UserPrincipalName,
+        [Parameter(Mandatory=$True)]
+        [String]$clientId,
+        [Parameter(Mandatory=$false)]
+        [String]$scope,
+        [Parameter(Mandatory=$false)]
+        [String]$resourceId,
+        [Parameter(Mandatory=$false)]
+        [swtich]$force
+    )
+    Process
+    {
+
+        $API = "/oauth2PermissionGrants"
+        # default permission is openid and profile for msgraph
+        if ([String]::IsNullOrEmpty($scope)) {
+            $scope="openid profile"
+        }
+
+        # default resourceId for MS graph API
+        if ([String]::IsNullOrEmpty($scope)) {
+            $resourceId="a58b0002-fd14-43d8-aa02-521cbb08493a"
+        }
+        
+        $user=Get-MSGraphUser -UserPrincipalName $UserPrincipalName
+
+        if (!$user){
+            write-error "not find user object for $UserPrincipalName"
+            return $NULL
+        }
+
+        # Check if the admin consent has been granted already
+        $adminsonentpermissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -clientid $clientId -adminconsentonly 
+        if ($adminsonentpermissions) {
+            write-information "admin consents are granted already for client $clientId, please review the permissions if it is required to grant user consents"
+            write-verbose $adminsonentpermissions
+            # skip add user consents if admin consents exists and no force swtich added
+            if (!$force) {
+                return $NULL
+            }
+        }
+
+        # get all user consent permissions
+        $oauth2permissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName 
+        
+        $clientpermission = $oauth2permissions | where {$_.clientid -eq $clientId}
+        if ($clientpermission) {
+            
+            write-information "skip adding permission as user consent permissions are granted already"
+            write-verbose $clientpermission   
+        } else {
+            $oauth2gant = @{
+                "clientId"= "5873219c-6ef9-4010-9400-b6abfca1afef"
+                "consentType"="Principal"
+                "resourceId"="a58b0002-fd14-43d8-aa02-521cbb08493a"
+                "scope"="openid profile"
+                "principalId"=$user.id
+            }
+
+        }
+
+        # Url encode for external users, replace # with %23
+        $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
+
+        # try to get all user consent permissions for this user 
+ 
+        
+        $API = "users/$UserPrincipalName"
+        $ApiVersion = "beta"
+        $querystring = "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
+
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $querystring
+        
+        return $results
+    }
+}
+
+
+# remove user consents permissions for target application
+function remove-MSGraphUserconsent
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$UserPrincipalName,
+        [Parameter(Mandatory=$True)]
+        [String]$clientId
+    )
+    Process
+    {
+        # Url encode for external users, replace # with %23
+        $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
+
+        $API = "users/$UserPrincipalName"
+        $ApiVersion = "beta"
+        $querystring = "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
+
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $querystring
+        
+        return $results
+    }
+}

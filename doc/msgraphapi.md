@@ -59,7 +59,7 @@ method支持的值为Put,Get,Post,Delete,Patch,Update
 	
 	$API="auditLogs/signIns"
 	$queryString = "`$top=50&`$orderby=createdDateTime"
-    $results=Call-MSGraphAPI -API $API -QueryString $queryString -verbsoe
+    $results=Call-MSGraphAPI -API $API -QueryString $queryString -verbose
 
 
 输出内容中可以看到MS Graph API调用:
