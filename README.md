@@ -86,7 +86,7 @@ If the current required cloud is not the expected one, you can set default cloud
 
 ### [MS Graph API usage](./doc/msgraphapi.md)
 
-### [Admin/user consents for delegration permissions](./doc/userconents.md)
+### [Admin/user consents for delegration permissions](./doc/userconsents.md)
 
 
 # Powershell Modules Cmdlets reference
