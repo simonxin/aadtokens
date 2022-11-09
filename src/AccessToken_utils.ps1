@@ -33,6 +33,7 @@ $INTERNET_SUPPRESS_COOKIE_PERSIST    = 3
 # referred known first-party app https://github.com/Seb8iaan/Microsoft-Owned-Enterprise-Applications/blob/main/Microsoft%20Owned%20Enterprise%20Applications%20Overview.md
 $AzureKnwonClients = @{
 
+    "msgraph" =             "00000003-0000-0000-c000-000000000000" # msgraph resource AppID
     "drs" =                 "01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9" # Device Registration Service
     "graph_api"=            "1b730954-1685-4b74-9bfd-dac224a7b894" # MS Graph API
     "aadrm"=                "90f610bf-206d-4950-b61d-37fa6fd1b224" # AADRM
@@ -705,8 +706,8 @@ function Get-OpenIDConfiguration
     .Example
     Get-AADIntOpenIDConfiguration -Domain company.com
 
-    authorization_endpoint                : https://login.microsoftonline.com/5b62a25d-60c6-40e6-aace-8a43e8b8ba4a/oauth2/authorize
-    token_endpoint                        : https://login.microsoftonline.com/5b62a25d-60c6-40e6-aace-8a43e8b8ba4a/oauth2/token
+    authorization_endpoint                : https://login.microsoftonline.com/5b62a25d-60c6-40e6-aace-8a43e8b8ba4a/oauth2/v2.0/authorize
+    token_endpoint                        : https://login.microsoftonline.com/5b62a25d-60c6-40e6-aace-8a43e8b8ba4a/oauth2/v2.0/token
     token_endpoint_auth_methods_supported : {client_secret_post, private_key_jwt, client_secret_basic}
     jwks_uri                              : https://login.microsoftonline.com/common/discovery/keys
     response_modes_supported              : {query, fragment, form_post}
@@ -1074,6 +1075,8 @@ function Get-OAuthInfoUsingSAML
         [Parameter(Mandatory=$False)]
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
         [Parameter(Mandatory=$false)]
+        [String]$scope,        
+        [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
 
     )
@@ -1086,6 +1089,12 @@ function Get-OAuthInfoUsingSAML
     }
     Process
     {
+
+        # default scope
+        if([String]::IsNullOrEmpty($scope))        
+        {
+            $scope = "openid profile"
+        }         
 
         $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
 
@@ -1100,7 +1109,7 @@ function Get-OAuthInfoUsingSAML
             "client_id"=$ClientId
             "grant_type"="urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion"=$encodedSamlToken
-            "scope"="openid"
+            "scope"="$scope"
         }
 
         # Debug
@@ -1113,7 +1122,7 @@ function Get-OAuthInfoUsingSAML
         $contentType="application/x-www-form-urlencoded"
         try
         {
-            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$aadloginuri/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$aadloginuri/common/oauth2/v2.0/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
         }
         catch
         {
@@ -1137,23 +1146,35 @@ function Get-OAuthInfo
     Param(
         [Parameter(Mandatory=$True)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(Mandatory=$True)]
-        [String]$Resource,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory=$false)]
+        [String]$tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$scope,
+        [Parameter(Mandatory=$false)]
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
+        [Parameter(Mandatory=$false)]
+        [String]$clientsecret, # required when the client ID is not first-party app
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
 
     )
-    Begin
-    {
-        # Create the headers. We like to be seen as Outlook.
-        $headers = @{
-            "User-Agent" = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; Tablet PC 2.0; Microsoft Outlook 16.0.4266)"
-        }
-    }
     Process
     {
+
+        # default scope
+        if([String]::IsNullOrEmpty($scope))        
+        {
+            $scope = "openid profile"
+        } 
+
+        # get tenant
+        if([String]::IsNullOrEmpty($tenant))        
+        {
+            $tenant = "common"
+        } 
+
+
+
         # Get the user realm
         $userRealm = Get-UserRealm($Credentials.UserName)
 
@@ -1171,13 +1192,42 @@ function Get-OAuthInfo
             # with user name and password to get access token
 
             # Create a body for REST API request
-            $body = @{
-                "resource"=$Resource
-                "client_id"=$ClientId
-                "grant_type"="password"
-                "username"=$Credentials.UserName
-                "password"=$Credentials.GetNetworkCredential().Password
-                "scope"="openid"
+
+            if ($script:AzureKnwonClients.Values -contains $ClientId) {
+                # first-party application
+                $body = @{
+                    "client_id"=$ClientId
+                    "grant_type"="password"
+                    "username"=$Credentials.UserName
+                    "password"=$Credentials.GetNetworkCredential().Password
+                    "scope"="$scope"
+                }
+
+            } else {
+
+                # customer app needs client secrets
+                if([String]::IsNullOrEmpty($clientsecret))  {
+                    write-verbose "recommanded to use clientsecret for confidential application access"
+                    
+                    $body = @{
+                        "client_id"=$ClientId
+                        "grant_type"="password"
+                        "username"=$Credentials.UserName
+                        "password"=$Credentials.GetNetworkCredential().Password
+                        "scope"="$scope"
+                    }
+
+                } else {
+                    $body = @{
+                        "client_id"=$ClientId
+                        "client_secret"=$clientsecret
+                        "grant_type"="password"
+                        "username"=$Credentials.UserName
+                        "password"=$Credentials.GetNetworkCredential().Password
+                        "scope"="$scope"
+                    }
+                 }   
+    
             }
 
             # Debug
@@ -1186,23 +1236,10 @@ function Get-OAuthInfo
                 write-verbose "$key`: $($body[$key])"
             }
            
-
             # Set the content type and call the Microsoft Online authentication API
             $contentType="application/x-www-form-urlencoded"
-            try
-            {
-                $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$aadloginuri/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
-            }
-            catch
-            {
-                $e = $_.Exception
-                $memStream = $e.Response.GetResponseStream()
-                $readStream = New-Object System.IO.StreamReader($memStream)
-                while ($readStream.Peek() -ne -1) {
-                    Write-Error $readStream.ReadLine()
-                }
-                $readStream.Dispose();
-            }
+            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$aadloginuri/$tenant/oauth2/v2.0/token" -ContentType $contentType -Method POST -Body $body
+
         }
         else
         {
@@ -1289,11 +1326,23 @@ function Get-OAuthInfo
             $jsonResponse = Get-OAuthInfoUsingSAML -SAMLToken $samlToken -Resource $Resource -ClientId $ClientId
         }
         
-        # Debug
-        write-verbose "AUTHENTICATION JSON: $($jsonResponse | Out-String)"
+        if ($jsonResponse.access_token) {
+            # Debug
+            write-verbose "AUTHENTICATION JSON: $($jsonResponse | Out-String)"
 
-        # Return
-        $jsonResponse 
+            # Return
+            $oauthifno = @{
+                id_token = $jsonResponse.id_token
+                access_token = $jsonResponse.access_token
+            }
+
+            return $oauthifno            
+
+        } else {
+
+            return $null
+        }
+
     }
 }
 
@@ -1476,10 +1525,7 @@ function Prompt-Credentials
         if([String]::IsNullOrEmpty($scope))        
         {
             $scope = "openid profile"
-        } else {
-            $scope = "openid profile $scope"
-
-        }
+        } 
         $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
      
 
@@ -1501,11 +1547,7 @@ function Prompt-Credentials
 
         # Create the url
         $request_id=(New-Guid).ToString()
-        if(![string]::IsNullOrEmpty($Resource)) {
-            $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$Resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
-        } else {
-            $url="$aadloginuri/$Tenant/oauth2/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
-        }
+        $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
     
         write-verbose "oauth Url: $url"
        
@@ -1566,7 +1608,7 @@ function Prompt-Credentials
 
             # Set the content type and call the Microsoft Online authentication API
             $contentType="application/x-www-form-urlencoded"
-            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$aadloginuri/$Tenant/oauth2/token" -ContentType $contentType -Method POST -Body $body
+            $jsonResponse=Invoke-RestMethod -UseBasicParsing -Uri "$aadloginuri/$Tenant/oauth2/v2.0/token" -ContentType $contentType -Method POST -Body $body
 
             # return 
             $jsonResponse

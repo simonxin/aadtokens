@@ -684,11 +684,11 @@ function get-MSGraphServicePrincipal
         
 
         # filter by appid if provided 
-        if ([String]::IsNullOrEmpty($clientId)){
+        if (![String]::IsNullOrEmpty($appid)){
              # Url encode for external users, replace # with %23
              $filter = "`$filter=appId eq '$appid'"
              $API="/servicePrincipals"
-        } elseif([String]::IsNullOrEmpty($id)) {
+        } elseif(![String]::IsNullOrEmpty($ObjectId)) {
             $API="/servicePrincipals/$ObjectId"
             $filter = $null
         } else {
@@ -722,10 +722,14 @@ function get-MSGraphoauth2permissions
         [Parameter(ParameterSetName='clientId',Mandatory=$True)]
         [String]$clientId,
         [Parameter(ParameterSetName='clientId',Mandatory=$false)]
+        [string]$resourceId,
+        [Parameter(ParameterSetName='clientId',Mandatory=$false)]
         [switch]$adminconsentonly
     )
     Process
     {
+
+        $ApiVersion = "v1.0"
 
         # try to get user consent if user name provided
         if (![String]::IsNullOrEmpty($UserPrincipalName)){
@@ -740,8 +744,13 @@ function get-MSGraphoauth2permissions
             } else {
                 $filter = "`$filter=clientId eq '$clientId'"
             }
+            
+            if (![String]::IsNullOrEmpty($resourceId)){
+                $filter = $filter + " AND resourceId eq '$resourceId'"
+            }
+
         }
-        $ApiVersion = "v1.0"
+
 
         try {
             $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $filter
@@ -771,16 +780,18 @@ function add-MSGraphUserconsent
         [Parameter(Mandatory=$false)]
         [String]$resourceId,
         [Parameter(Mandatory=$false)]
-        [swtich]$force
+        [switch]$force
     )
     Process
     {
 
         $API = "/oauth2PermissionGrants"
+        $ApiVersion="v1.0"
         # default permission is openid and profile for msgraph
         if ([String]::IsNullOrEmpty($scope)) {
             $scope="openid profile"
         }
+        $missedpermissions = ""
 
         # default resourceId for MS graph API
         if ([String]::IsNullOrEmpty($scope)) {
@@ -795,54 +806,82 @@ function add-MSGraphUserconsent
         }
 
         # Check if the admin consent has been granted already
-        $adminsonentpermissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -clientid $clientId -adminconsentonly 
+        $adminsonentpermissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -clientid $clientId -resourceId $resourceId -adminconsentonly 
         if ($adminsonentpermissions) {
-            write-information "admin consents are granted already for client $clientId, please review the permissions if it is required to grant user consents"
-            write-verbose $adminsonentpermissions
-            # skip add user consents if admin consents exists and no force swtich added
-            if (!$force) {
-                return $NULL
+
+            $fullscopes = [string]::Join(" ",$adminsonentpermissions.scope).split(" ")
+            $scopeitems =  $scope.split(" ")
+            foreach ($scopeitem in $scopeitems){
+                if (!($fullscopes -contains $scopeitem)) {
+
+                    if ($missedpermissions -eq "") {
+                        $missedpermissions=$scopeitem
+                    } else {
+                        $missedpermissions=$missedpermissions+" "+$scopeitem
+                    }
+                }
             }
+
+            # skip add user consents if admin consents exists and no force swtich added
+            if ($missedpermissions -eq "") {
+                write-verbose "admin consents are granted already for client $clientId, please review the permissions if it is required to grant user consents"
+                return $NULL
+            } 
+            
         }
 
         # get all user consent permissions
         $oauth2permissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName 
         
-        $clientpermission = $oauth2permissions | where {$_.clientid -eq $clientId}
+        $clientpermission = $oauth2permissions | where {$_.clientid -eq $clientId -and $_.resourceId -eq $resourceId}
         if ($clientpermission) {
             
-            write-information "skip adding permission as user consent permissions are granted already"
-            write-verbose $clientpermission   
-        } else {
+            if ($force) {
+                write-verbose "force update user permissions with new scope: $scope, it will remove the existing user permissions"
+                clear-MSGraphUserconsent -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName -clientId $clientId -resourceId $resourceId
+
+            } else {
+                write-verbose "user consents are granted already for client $clientId, skip the process"
+                write-verbose $clientpermission
+                return $NULL
+            }
+            
+   
+        } 
+        
+        # add missed permissions only if not existing
+        
+        if ($missedpermissions -eq "") {
             $oauth2gant = @{
-                "clientId"= "5873219c-6ef9-4010-9400-b6abfca1afef"
+                "clientId"= $clientId
                 "consentType"="Principal"
-                "resourceId"="a58b0002-fd14-43d8-aa02-521cbb08493a"
-                "scope"="openid profile"
+                "resourceId"=$resourceId
+                "scope"=$scope
                 "principalId"=$user.id
             }
 
+        } else {
+
+            $oauth2gant = @{
+                "clientId"= $clientId
+                "consentType"="Principal"
+                "resourceId"=$resourceId
+                "scope"=$missedpermissions
+                "principalId"=$user.id
+            }
         }
 
-        # Url encode for external users, replace # with %23
-        $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
 
-        # try to get all user consent permissions for this user 
- 
-        
-        $API = "users/$UserPrincipalName"
-        $ApiVersion = "beta"
-        $querystring = "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
-
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $querystring
+        $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -method POST -body $oauth2gant
         
         return $results
     }
 }
 
 
-# remove user consents permissions for target application
-function remove-MSGraphUserconsent
+
+# evaluate consents permissions for target user
+function test-MSGraphUserconsent
 {
     [cmdletbinding()]
     Param(
@@ -851,19 +890,134 @@ function remove-MSGraphUserconsent
         [Parameter(Mandatory=$True)]
         [String]$UserPrincipalName,
         [Parameter(Mandatory=$True)]
-        [String]$clientId
+        [String]$clientId,
+        [Parameter(Mandatory=$false)]
+        [String]$scope,
+        [Parameter(Mandatory=$false)]
+        [String]$resourceId
     )
     Process
     {
-        # Url encode for external users, replace # with %23
-        $UserPrincipalName = $UserPrincipalName.Replace("#","%23")
 
-        $API = "users/$UserPrincipalName"
-        $ApiVersion = "beta"
-        $querystring = "`$select=businessPhones,displayName,givenName,id,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName,onPremisesDistinguishedName,onPremisesExtensionAttributes,onPremisesImmutableId,onPremisesLastSyncDateTime,onPremisesSamAccountName,onPremisesSecurityIdentifier,refreshTokensValidFromDateTime,signInSessionsValidFromDateTime,usageLocation,provisionedPlans,proxyAddresses"
+        # default permission is openid and profile for msgraph
+        if ([String]::IsNullOrEmpty($scope)) {
+            $scope="openid profile"
+        }
+        $missedpermissions = ""
 
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -QueryString $querystring
+        # default resourceId for MS graph API
+        if ([String]::IsNullOrEmpty($resourceId)) {
+            $resourceId="a58b0002-fd14-43d8-aa02-521cbb08493a"
+        }
         
-        return $results
+        $user=Get-MSGraphUser -UserPrincipalName $UserPrincipalName
+
+        if (!$user){
+            write-error "not find user object for $UserPrincipalName"
+            return $false
+        }
+
+        # Check if the admin consent has been granted already
+        $adminsonentpermissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -clientid $clientId -resourceId $resourceId -adminconsentonly 
+        if ($adminsonentpermissions) {
+
+            $fullscopes = [string]::Join(" ",$adminsonentpermissions.scope).split(" ")
+            $scopeitems =  $scope.split(" ")
+            foreach ($scopeitem in $scopeitems){
+                if (!($fullscopes -contains $scopeitem)) {
+
+                    if ($missedpermissions -eq "") {
+                        $missedpermissions=$scopeitem
+                    } else {
+                        $missedpermissions=$missedpermissions+" "+$scopeitem
+                    }
+                }
+            }
+
+            # skip add user consents if admin consents exists and no force swtich added
+            if ($missedpermissions -eq "") {
+                write-verbose "admin consents are granted already for client $clientId, please review the permissions if it is required to grant user consents"
+                return $true
+            } 
+            
+        }
+
+        # get all user consent permissions
+        $oauth2permissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName 
+        
+        $clientpermission = $oauth2permissions | where {$_.clientid -eq $clientId -and $_.resourceId -eq $resourceId}
+        if ($clientpermission) {
+            
+            $fullscopes = [string]::Join(" ",$clientpermission.scope).split(" ")
+
+            if ($missedpermissions -eq "") {
+                $scopeitems =  $scope.split(" ")
+            } else {
+                $scopeitems =  $missedpermissions.split(" ")
+                $missedpermissions = ""
+            }
+
+            foreach ($scopeitem in $scopeitems){
+                if (!($fullscopes -contains $scopeitem)) {
+
+                    if ($missedpermissions -eq "") {
+                        $missedpermissions=$scopeitem
+                    } else {
+                        $missedpermissions=$missedpermissions+" "+$scopeitem
+                    }
+                }
+            }
+
+            # skip add user consents if admin consents exists and no force swtich added
+            if ($missedpermissions -eq "") {
+                write-verbose "user consents are granted already for client $clientId"
+                return $true
+            } else {
+                write-verbose "user consents are granted but missing permissions: $missedpermissions"
+                return $false
+            }
+          
+
+        } else{
+
+            write-verbose "no user consents are granted"
+            return $false
+        }
+     
+    }
+}
+
+
+
+# remove user consents permissions for target application
+function clear-MSGraphUserconsent
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$UserPrincipalName,
+        [Parameter(Mandatory=$True)]
+        [String]$clientId,
+        [Parameter(Mandatory=$false)]
+        [String]$resourceId
+    )
+    Process
+    {
+        # default resourceId for MS graph API
+        if ([String]::IsNullOrEmpty($scope)) {
+            $resourceId="a58b0002-fd14-43d8-aa02-521cbb08493a"
+        }
+        
+        # get all user consent permissions
+        $oauth2permissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName 
+        
+        $clientpermissions = $oauth2permissions | where {$_.clientid -eq $clientId -and $_.resourceId -eq $resourceId}
+
+        foreach ($clientpermission in $clientpermissions) {
+            $API = "/oAuth2PermissionGrants/$($clientpermission.Id)"
+            call-msgraphapi -api $API -apiversion "v1.0" -method delete
+        }
     }
 }

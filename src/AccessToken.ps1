@@ -65,7 +65,7 @@ function Get-AccessTokenFromCache
         if(Is-AccessTokenExpired($retVal))
         {
             Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
-            $retVal = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
+            $retVal = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -scope (Read-Accesstoken -AccessToken $retVal).scp -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
         }
 
         # Return
@@ -1532,7 +1532,7 @@ function Get-AccessTokenForAADIAMAPI
         }
 
 
-        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $aadiamapi -ClientId $clientId -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid
+        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $aadiamapi -ClientId $clientId -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid -scope (Read-Accesstoken $AccessTokens[0]).scp
 
         if(!$SaveToCache)
         {
@@ -2111,36 +2111,11 @@ function Get-AccessToken
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
-    Begin
-    {
-        # List of clients requiring the same client id
-        $requireClientId=@(
-            "cb1056e2-e479-49de-ae31-7812af012ed8" # Pass-through authentication
-            "c44b4083-3bb0-49c1-b47d-974e53cbdf3c" # Azure Admin web ui
-            "1fec8e78-bce4-4aaf-ab1b-5451cc387264" # Teams
-            "d3590ed6-52b3-4102-aeff-aad2292ab01c" # Office, ref. https://docs.microsoft.com/en-us/office/dev/add-ins/develop/register-sso-add-in-aad-v2
-            "a0c73c16-a7e3-4564-9a95-2bdf47383716" # EXO Remote PowerShell
-            "389b1b32-b5d5-43b2-bddc-84ce938d6737" # Office Management API Editor https://manage.office.com
-            "ab9b8c07-8f02-4f72-87fa-80105867a763" # OneDrive Sync Engine
-            "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO
-            "29d9ed98-a469-4536-ade2-f981bc1d605e" # MDM
-            "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" # Azure Android App
-            "6c7e8096-f593-4d72-807f-a5f86dcc9c77" # MAM
-            "4813382a-8fa7-425e-ab75-3b753aab3abb" # Microsoft authenticator
-            "8c59ead7-d703-4a27-9e55-c96a0054c8d2"
-            "c7d28c4f-0d2c-49d6-a88d-a275cc5473c7" # https://www.microsoftazuresponsorships.com/
-            "04b07795-8ddb-461a-bbee-02f9e1bf7b46" # Azure CLI
-            "ecd6b820-32c2-49b6-98a6-444530e5a77a" # Edge
-            "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
-        )
-    }
     Process
     {
         
         $aadgraph = $script:AzureResources[$Cloud]['aad_graph_api']
         $devicemanagementsvc = $script:AzureResources[$Cloud]['devicemanagementsvc']
-        $mdm = $script:AzureResources[$Cloud]['mdm']
-
         # fullfil redirect Uri if not provided to generate access token
         if([string]::IsNullOrEmpty($RedirectUri))
         {
@@ -2210,16 +2185,7 @@ function Get-AccessToken
 
                   # call get oauth if the request contains a user name/password credential
                    if ($Credentials.username -like "*@*") {
-                        if($requireClientId -contains $ClientId)
-                        {
-                            # Requires same clientId
-                            $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -Resource $aadgraph 
-                        }
-                        else
-                        {
-                            # "Normal" flow
-                            $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -Resource $aadgraph 
-                        }
+                       $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -tenant $tenant -clientSecret $clientSecret
                     # call client crentail auth flow
                     } else {
                         $client_token= Get-AccessTokenwithclientcredentail -Credentials $Credentials -Resource $Resource -Tenant $tenant
@@ -2330,19 +2296,28 @@ function Get-AccessTokenWithRefreshToken
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache = $false,
         [Parameter(Mandatory=$False)]
+        [string]$scope,
+        [Parameter(Mandatory=$False)]
         [bool]$IncludeRefreshToken = $false,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
+
+        # default scope
+        if([String]::IsNullOrEmpty($scope))        
+        {
+            $scope = "openid profile"
+        }     
+
         # Set the body for API call
         $body = @{
             "resource"=      $Resource
             "client_id"=     $ClientId
             "grant_type"=    "refresh_token"
             "refresh_token"= $RefreshToken
-            "scope"=         "openid"
+            "scope"=         "$scope"
         }
 
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
@@ -2351,11 +2326,11 @@ function Get-AccessTokenWithRefreshToken
 
         if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
         {
-            $url = "$aadlogincommon/common/oauth2/token"
+            $url = "$aadlogincommon/common/oauth2/v2.0/token"
         }
         else
         {
-            $url = "$aadlogin/$TenantId/oauth2/token"
+            $url = "$aadlogin/$TenantId/oauth2/v2.0/token"
         }
 
         # Debug
@@ -2636,6 +2611,8 @@ function Get-AccessTokenWithAuthorizationCode
         [Parameter(Mandatory=$False)]
         [String]$RedirectUri,
         [Parameter(Mandatory=$False)]
+        [String]$scope,
+        [Parameter(Mandatory=$False)]
         [String]$CodeVerifier,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
@@ -2643,6 +2620,12 @@ function Get-AccessTokenWithAuthorizationCode
     Process
     {
 
+        # default scope
+        if([String]::IsNullOrEmpty($scope))        
+        {
+            $scope = "openid profile"
+        }     
+        
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
         $aadlogincommon = $script:AzureResources[$Cloud]['aad_login_common']
 
@@ -2655,7 +2638,7 @@ function Get-AccessTokenWithAuthorizationCode
             "client_id"=     $ClientId
             "grant_type"=    "authorization_code"
             "code"=          $AuthorizationCode
-            "scope"=         "openid profile email"
+            "scope"=         "$scope"
         }
         if(![string]::IsNullOrEmpty($RedirectUri))
         {
@@ -2671,11 +2654,11 @@ function Get-AccessTokenWithAuthorizationCode
 
         if($ClientId -eq "ab9b8c07-8f02-4f72-87fa-80105867a763") # OneDrive Sync Engine
         {
-            $url = "$aadlogincommon/common/oauth2/token"
+            $url = "$aadlogincommon/common/oauth2/v2.0/token"
         }
         else
         {
-            $url = "$aadlogin/$TenantId/oauth2/token"
+            $url = "$aadlogin/$TenantId/oauth2/v2.0/token"
         }
         
         # Debug
@@ -2710,11 +2693,19 @@ function Get-AccessTokenWithDeviceSAML
         [String]$SAML,
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache,
+        [Parameter(Mandatory=$False)]
+        [String]$scope,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
+
+        # default scope
+        if([String]::IsNullOrEmpty($scope))        
+        {
+            $scope = "openid profile"
+        }    
 
         $devicemanagementsvc = $script:AzureResources[$Cloud]['devicemanagementsvc']
         $resource = "urn:ms-drs:$devicemanagementsvc"
@@ -2732,7 +2723,7 @@ function Get-AccessTokenWithDeviceSAML
             "client_id"=     $ClientId
             "grant_type"=    "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion"=     Convert-TextToB64 -Text $SAML
-            "scope"=         "openid"
+            "scope"=         "$scope"
         }
         
         # Debug
@@ -2740,7 +2731,7 @@ function Get-AccessTokenWithDeviceSAML
         
         # Set the content type and call the API
         $contentType = "application/x-www-form-urlencoded"
-        $response =    Invoke-RestMethod -UseBasicParsing -Uri "$aadlogin/common/oauth2/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
+        $response =    Invoke-RestMethod -UseBasicParsing -Uri "$aadlogin/common/oauth2/v2.0/token" -ContentType $contentType -Method POST -Body $body -Headers $headers
 
         # Debug
         write-verbose "ACCESS TOKEN RESPONSE: $response"
@@ -2847,7 +2838,7 @@ function Get-AccessTokenUsingAADGraph
         }
 
         # Create a new AccessToken for Azure AD management portal API
-        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientId -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $SaveToCache
+        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientId -TenantId $tenant -RefreshToken $refresh_token -scope $scope -SaveToCache $SaveToCache
 
         # Return
         $AccessToken

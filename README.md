@@ -41,31 +41,57 @@ You may check the current cloud instance by command:
 
 You will see cloud instance and the common resource endpoint:
 
-![image](https://raw.githubusercontent.com/simonxin/aadtokens/main/doc/powershell1.png)
+![](./doc/powershell1.png)
 
 If the current required cloud is not the expected one, you can set default cloud by command:
 
 	# current supported cloud instance: AzureChina, AuzrePublic
 	set-defaultcloud "<CloudInstance>"
 
-## Cmdlets reference
-	
-### [full commands references](./doc/commands.csv)
-
-
-# Sample usage
-	
 ## Run command to get access token
 
 	# sample code to get access token for MSGraph
 	$accesstoken = Get-AccessTokenForMSGraph
 
-	# use token to connect to msgraph API
+	# use token to connect to msgraph API in 21v Cloud
 	Connect-MgGraph -AccessToken $accesstoken -Environment China
 	Get-Mguser
 
 	# disconnect connection to msgraph API
 	Disconnect-MgGraph
+
+# Details to request token with different oauth2 flows
+
+### [OpenId Connect Flow](./doc/openid.md)
+
+### [authorization code flow](./doc/authcode.md)
+
+### [device code flow](./doc/devicecode.md)
+
+### [client credential flow](./doc/clientcreds.md)
+
+### [Resource Owner Password Credential flow](./doc/passwords.md)
+
+### [On Behalf Of flow](./doc/obo.md)
+
+### [implicit grant flow](./doc/openid.md)
+
+### [refresh token](./doc/refreshtoken.md)
+
+# Use Azure Management API
+
+### [Azure Management API usage](./doc/azuremanagementapi.md)
+
+# Use MS Graph API
+
+### [MS Graph API usage](./doc/msgraphapi.md)
+
+### [Admin/user consents for delegration permissions](./doc/userconents.md)
+
+
+# Powershell Modules Cmdlets reference
+	
+### [full commands references](./doc/commands.csv)
 
 
 # Advanced command parameters 
@@ -126,7 +152,7 @@ Use this swich in command to use device code flow to get access token.
 
 ## Credentials
 
-Use this parameter if you want to use client credential grant flow to get access token.
+Use this parameter if you want to use client credential grant flow or resource Owner password credential flow to get access token.
 Use client credentials will need to add -tenant and -redirectUri in command.
 Sample: 
 
@@ -146,27 +172,20 @@ Sample:
 	# get access token based on client credentials
 	$accesstoken = Get-AccessTokenForMSGraph -Credentials $credential -tenant $tenant -redirecturi $redirecturi -verbose 
 
+Use password credential will need to add -tenant in command.
+Sample: 
 
-# oauth2 flows explains and demos
+	# client creds grant flow 
+	# Define tanant for single tenant client
+	$tenant = "<your_tenantId>"
+	
+	# Add user name and password as rquired credential for ROPC
+	$username = "user@contoso.com" 
+	$password = "password"
+	$SecurePassword=convertto-securestring -AsPlainText -Force -String $clientSecret
+	$credential = New-Object System.Management.Automation.PSCredential -ArgumentList ($clientID,$SecurePassword)
+	
+	# get access token based for msgraph
+	$accesstoken = Get-AccesstokenforMsgraph -Credentials $credential -tenant $tenant -verbose
 
-### [OpenId Connect Flow](./doc/openid.md)
 
-### [authorization code flow](./doc/authcode.md)
-
-### [device code flow](./doc/devicecode.md)
-
-### [client credential flow](./doc/clientcreds.md)
-
-### [On Behalf Of flow](./doc/obo.md)
-
-### [implicit grant flow](./doc/openid.md)
-
-### [refresh token](./doc/refreshtoken.md)
-
-# Azure Management API
-
-### [Azure Management API usage](./doc/azuremanagementapi.md)
-
-# MS Graph API
-
-### [MS Graph API usage](./doc/msgraphapi.md)
