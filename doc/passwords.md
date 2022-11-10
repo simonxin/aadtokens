@@ -62,7 +62,7 @@ ROPC flow使用custom app时无法发出permission consent请求。 如果之前
 	
 ![](./password2.png)
 
-重新申请user consents后（命令参考[user consents](./doc/userconsents.md)）,可以看到access token正常获取。
+重新申请user consents后（命令参考[user consents](./userconsents.md)）,可以看到access token正常获取。
 
 ![](./password3.png)
 
