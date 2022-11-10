@@ -1524,8 +1524,10 @@ function Prompt-Credentials
 
         if([String]::IsNullOrEmpty($scope))        
         {
-            $scope = "openid profile"
-        } 
+            $scope = $resource.trimend('/')+"/.default"
+        } else {
+            $scope =  $scope+" "+$resource.trimend('/')+"/.default"
+        }
         $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
      
 
@@ -1547,8 +1549,13 @@ function Prompt-Credentials
 
         # Create the url
         $request_id=(New-Guid).ToString()
-        $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
-    
+        if ($script:AzureKnwonClients.Values -contains $client_id) {
+
+            $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
+        } else {
+
+            $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
+        }
         write-verbose "oauth Url: $url"
        
         if($ForceMFA)

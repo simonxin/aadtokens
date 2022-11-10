@@ -731,7 +731,7 @@ function Get-AccessTokenForAzureManagement
         $resource = $script:AzureResources[$Cloud]["azure_mgmt_api"] # get windows core management api resource
      ##   $clientId = $script:AzureKnwonClients["office"]
         $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
-        Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
+        Get-AccessToken -cloud $Cloud -RedirectUri $RedirectUri -ClientId $clientId -resource $resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
 
@@ -2160,15 +2160,16 @@ function Get-AccessToken
             # Check if we got credentials
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
-               
-               
-                # No credentials given, so prompt for credentials
-                #if(  $ClientId -eq "d3590ed6-52b3-4102-aeff-aad2292ab01c" <# Office #> -or 
-                #     $ClientId -eq "a0c73c16-a7e3-4564-9a95-2bdf47383716" <# EXO #>    -or 
-                #    ($ClientId -eq "29d9ed98-a469-4536-ade2-f981bc1d605e" -and $Resource -eq $mdm) <# MDM #> -or
-                #    $ClientId -eq "1b730954-1685-4b74-9bfd-dac224a7b894" <# graph API #>
-                #)  
-                #{
+           
+                # add offline access scope 
+                if ($SaveToCache -or $IncludeRefreshToken)  {
+                    if ([string]::IsNullOrEmpty($scope)) {
+                        $scope = "offline_access"
+                    } else {
+                        $scope = $scope +" offline_access"
+                    }
+
+                }
 
                 $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt
                 
@@ -2286,6 +2287,7 @@ function Get-AccessTokenWithRefreshToken
 {
     [cmdletbinding()]
     Param(
+        [Parameter(Mandatory=$True)]
         [String]$Resource,
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
@@ -2298,7 +2300,7 @@ function Get-AccessTokenWithRefreshToken
         [Parameter(Mandatory=$False)]
         [string]$scope,
         [Parameter(Mandatory=$False)]
-        [bool]$IncludeRefreshToken = $false,
+        [bool]$IncludeRefreshToken = $true,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -2308,12 +2310,11 @@ function Get-AccessTokenWithRefreshToken
         # default scope
         if([String]::IsNullOrEmpty($scope))        
         {
-            $scope = "openid profile"
+            $scope = "offline_access " + $Resource.TrimEnd('/')+"/.default"
         }     
 
         # Set the body for API call
         $body = @{
-            "resource"=      $Resource
             "client_id"=     $ClientId
             "grant_type"=    "refresh_token"
             "refresh_token"= $RefreshToken
@@ -2343,13 +2344,8 @@ function Get-AccessTokenWithRefreshToken
             $response=Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body            
         }
         catch {
-            $e = $_.Exception
-            $memStream = $e.Response.GetResponseStream()
-            $readStream = New-Object System.IO.StreamReader($memStream)
-            while ($readStream.Peek() -ne -1) {
-                Write-Error $readStream.ReadLine()
-            }
-            $readStream.Dispose()
+            write-verbose $error[0]
+            return $NULL
         }
  
 
@@ -2507,7 +2503,7 @@ function Get-AccessTokenwithclientcredentail
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
 
         # define a scope with default of request resource
-        $scope = $resource+"/.default"
+        $scope = $resource.trimend('/')+"/.default"
         
         # Create a body for the first request
         $body=@{
@@ -2623,7 +2619,7 @@ function Get-AccessTokenWithAuthorizationCode
         # default scope
         if([String]::IsNullOrEmpty($scope))        
         {
-            $scope = "openid profile"
+            $scope = $resource.trimend('/')+"/.default"
         }     
         
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
@@ -2824,7 +2820,7 @@ function Get-AccessTokenUsingAADGraph
         $aadgraph = $script:AzureResources[$Cloud]['aad_graph_api']
         
         # Try to get AAD Graph access token from the cache
-        $AccessToken = Get-AccessTokenFromCache -AccessToken $null -Resource $aadgraph -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        $AccessToken = Get-AccessTokenFromCache -Resource $aadgraph -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
         # Get the tenant id
         $tenant = (Read-Accesstoken -AccessToken $AccessToken).tid

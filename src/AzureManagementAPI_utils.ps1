@@ -106,6 +106,8 @@ function Call-AzureManagementAPI
         [String]$operation,  # opertion like restart
         [Parameter(ParameterSetName='resourceId',Mandatory=$false)]
         [String]$apiversion,  # API-version
+        [Parameter(andatory=$false)]
+        [switch]$headerresponse,  # API-version
         [Parameter(Mandatory=$False)]
         [ValidateSet('Put','Get','Post','Delete')]
         [String]$Method="Get",
@@ -191,7 +193,30 @@ function Call-AzureManagementAPI
 
         # Call the API
         try {
-            $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body ($Body | ConvertTo-Json -Depth 5)
+            if ($headerresponse) {
+                $response=Invoke-WebRequest -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body ($Body | ConvertTo-Json -Depth 5)
+           
+                write-verbose "return headers and conent"
+                $responseresult = @{
+                    value = $response.content | convertfrom-json
+                    header = $response.headers
+                }
+                return $responseresult
+            
+            
+            } else {
+                $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body ($Body | ConvertTo-Json -Depth 5)
+   
+                write-verbose "Azure Management REST API call is successful with a response code 200"
+                if ($response.value) {
+                    return $response.value
+                } else {
+                    return $NULL
+                }
+   
+            }
+        
+           
         }
         catch {
             write-verbose "Azure Management REST API call failed with error details below:"
@@ -211,13 +236,6 @@ function Call-AzureManagementAPI
 
         }
 
-        write-verbose "Azure Management REST API call is successful with a response code 200"
-        if ($response.value) {
-            return $response.value
-        } else {
-            return $NULL
-        }
-       
     }
 }
 
