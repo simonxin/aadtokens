@@ -47,7 +47,7 @@ admin consent授权完成:
 如果需要applicaton只能对特定用户代理授权，可以使用 MS Graph API: <a href="https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0" title="oauth2permissiongrant">oauth2permissiongrant</a>
 
 	# get service principal object ID with a application ID
-	$appid = "1eaf2d90-1992-4304-a391-3cd3b56ce817"
+	$appid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 	$spid = $(get-MSGraphServicePrincipal -appid $appid).id
 	
 	# get service principal object ID with a target resource appId
@@ -58,7 +58,7 @@ admin consent授权完成:
 	$scope="openid profile user.read"
 
 	# evalate the user consents for giving user
-	$user = "simonxin_wvdtest@mcpod.partner.onmschina.cn" 
+	$user = "user@sontoso.partner.onmschina.cn" 
 	$isconsented = test-MSGraphUserconsent -clientId $spid -UserPrincipalName $user -resourceId $resourceid -scope $scope -verbose
 
 以上命令会检查当前的admin consents和user consents， 并根据提供的scope判断是否已经对所有权限完成授权。
