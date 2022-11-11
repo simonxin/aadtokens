@@ -64,7 +64,7 @@ RequiredModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-cache","get-accesstokenfromcache","Get-OpenIDConfiguration","get-DualFedTenant","Get-TenantID",
-"Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureMgmtAPI",
+"Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureManagement",
 "Get-AccessTokenForEXO","Get-AccessTokenForEXOPS","Get-AccessTokenForIntuneMDM","Get-AccessTokenForMip","Get-AccessTokenForMSGraph","Get-AccessTokenForOfficeApps",
 "Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo","Get-AADknownclient","Get-AdminConsent",
 "Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken",
@@ -77,7 +77,7 @@ FunctionsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-c
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-cache","get-accesstokenfromcache","Get-OpenIDConfiguration","get-DualFedTenant","Get-TenantID",
-"Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureMgmtAPI",
+"Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureManagement",
 "Get-AccessTokenForEXO","Get-AccessTokenForEXOPS","Get-AccessTokenForIntuneMDM","Get-AccessTokenForMip","Get-AccessTokenForMSGraph","Get-AccessTokenForOfficeApps",
 "Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo","Get-AADknownclient","Get-AdminConsent",
 "Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken",

@@ -33,7 +33,7 @@ function Call-MSGraphAPI
 
         # set msgraph api
 
-        $msgraphapi = $script:AzureResources[$Cloud]["ms_graph_api"]
+        $msgraphapi = $script:AzureResources[$Cloud]["ms_graph_api"].trimend("/") 
         $clientId = $script:AzureKnwonClients["graph_api"]
 
 
@@ -67,6 +67,22 @@ function Call-MSGraphAPI
         }
         $Headers["Authorization"] = "Bearer $AccessToken"
         
+                
+        if (![string]::IsNullOrEmpty($body)) {
+            # convert to json format
+            if ($($body | test-json -ErrorAction ignore)) {
+                $jsonbody = $body
+                $body = $body | convertfrom-json 
+        
+            } else {
+                $jsonbody = $body |  ConvertTo-Json -Depth 5 
+            }
+
+        } else {
+            $jsonbody = $NULL
+        }
+
+
         # format API
         $API = $API.TrimStart("/")
 
@@ -96,7 +112,7 @@ function Call-MSGraphAPI
 
         # Call the API
         try {
-            $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method  -Headers $Headers -Body ($Body | ConvertTo-Json -Depth 5)
+            $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method  -Headers $Headers -Body $jsonbody
            
         }
         catch {
@@ -122,7 +138,7 @@ function Call-MSGraphAPI
                 # Return
                 $response.value
                      
-                $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Headers $Headers -Body ($Body | ConvertTo-Json -Depth 5)
+                $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method -Headers $Headers -Body $jsonbody
                 $items+=$response.value.count
             }
 

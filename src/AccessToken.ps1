@@ -2168,7 +2168,6 @@ function Get-AccessToken
                     } else {
                         $scope = $scope +" offline_access"
                     }
-
                 }
 
                 $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt
@@ -2238,16 +2237,6 @@ function Get-AccessToken
         }
 
         
-        # Save the refresh token and other variables
-
-        if($SaveToCache -and $OAuthInfo -ne $null -and $access_token -ne $null)
-        {
-
-            Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $script:tokens["$ClientId-$Resource"] =          $access_token
-            $script:refresh_tokens["$ClientId-$Resource"] =  $refresh_token
-        }
-
         # Return
         if([string]::IsNullOrEmpty($access_token))
         {
@@ -2265,7 +2254,12 @@ function Get-AccessToken
                 "Client" =   $ClientID
             }
             Write-Host "AccessToken saved to cache."
-            return New-Object psobject -Property $attributes
+
+
+            $script:tokens["$ClientId-$($Resource.trimend('/'))"] =          $access_token
+            $script:refresh_tokens["$ClientId-$($Resource.trimend('/'))"] =  $refresh_token
+
+            return $null
         }
         else
         {
@@ -2820,7 +2814,7 @@ function Get-AccessTokenUsingAADGraph
         $aadgraph = $script:AzureResources[$Cloud]['aad_graph_api']
         
         # Try to get AAD Graph access token from the cache
-        $AccessToken = Get-AccessTokenFromCache -Resource $aadgraph -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        $AccessToken = Get-AccessTokenFromCache -Resource $($aadgraph.trimend("/")) -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
 
         # Get the tenant id
         $tenant = (Read-Accesstoken -AccessToken $AccessToken).tid

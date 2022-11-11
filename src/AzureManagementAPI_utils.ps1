@@ -21,7 +21,7 @@ function Call-AzureAADIAMAPI
     Process
     {
 
-        $aadiam = $script:AzureResources[$Cloud]['aad_iam'] # get AAD IAM endpoint
+        $aadiam = $script:AzureResources[$Cloud]['aad_iam'].trimend("/")  # get AAD IAM endpoint
 
         $clientId = $script:AzureKnwonClients['graph_api'] # client ID of azure portal
         $aadiamapi = $script:AzureKnwonClients["adibizaux"] # aad iam
@@ -54,9 +54,30 @@ function Call-AzureAADIAMAPI
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
         
-        $url = "$aadiam/api/$command`?api-version=$Version"
+        if (![string]::IsNullOrEmpty($body)) {
+            # convert to json format
+            if ($($body | test-json -ErrorAction ignore)) {
+                $jsonbody = $body
+                $body = $body | convertfrom-json 
+        
+            } else {
+                $jsonbody = $body |  ConvertTo-Json -Depth 5 
+            }
 
-        write-verbose "call AAD IAM API with method $Method"
+        } else {
+            $jsonbody = $NULL
+        }
+
+        if ($command -like "$aadiam/api/*") {
+
+            $url = $comamnd
+
+        } else {
+            $url = "$aadiam/api/$command`?api-version=$Version"
+        }
+
+
+        write-verbose "call AAD IAM API $url"
 
         if ($body) {
             write-verbose "FED AAD IAM requests BODY: "
@@ -67,7 +88,7 @@ function Call-AzureAADIAMAPI
 
         # Call the API
         try {
-            $response = Invoke-RestMethod -UseBasicParsing -Uri  $url  -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body ($Body | ConvertTo-Json -Depth 5)
+            $response = Invoke-RestMethod -UseBasicParsing -Uri  $url  -ContentType "application/json; charset=utf-8" -Headers $headers -Method $Method -Body $jsonbody
         }
         catch {
 
@@ -106,7 +127,7 @@ function Call-AzureManagementAPI
         [String]$operation,  # opertion like restart
         [Parameter(ParameterSetName='resourceId',Mandatory=$false)]
         [String]$apiversion,  # API-version
-        [Parameter(andatory=$false)]
+        [Parameter(Mandatory=$false)]
         [switch]$headerresponse,  # API-version
         [Parameter(Mandatory=$False)]
         [ValidateSet('Put','Get','Post','Delete')]
@@ -117,7 +138,7 @@ function Call-AzureManagementAPI
     Process
     {
 
-        $azuremanagement = $script:AzureResources[$Cloud]['azure_mgmt_api'] # get Azure Management API
+        $azuremanagement = $script:AzureResources[$Cloud]['azure_mgmt_api'].trimend("/") # get Azure Management API
         $clientId = $script:AzureKnwonClients["graph_api"]
    
 
@@ -148,6 +169,21 @@ function Call-AzureManagementAPI
             "x-ms-client-request-id" = (New-Guid).ToString()
         }
 
+        if (![string]::IsNullOrEmpty($body)) {
+            # convert to json format
+            if ($($body | test-json -ErrorAction ignore)) {
+                $jsonbody = $body
+                $body = $body | convertfrom-json 
+        
+            } else {
+                $jsonbody = $body |  ConvertTo-Json -Depth 5 
+            }
+
+        } else {
+            $jsonbody = $NULL
+        }
+
+
         # if the command is not provided, we will need to combine the command based on the provided subscription/resource type/resourcegroup/resource
         if ([string]::IsNullOrEmpty($Command)) {
 
@@ -165,6 +201,7 @@ function Call-AzureManagementAPI
                 write-verbose "use Apiversion $apiversion for resource $resourceId"
             }
                $command =  $command+"`?api-version="+$apiversion 
+               $url="$azuremanagement/$command"
 
         } else {
             $command = $command.trimstart("/")
@@ -178,11 +215,19 @@ function Call-AzureManagementAPI
                     $command  = $command+"`?api-version="+ $apiversion
                 }
             }
+
+            if ($command -like "https://*" -or $command -like "http://*") {
+                $url=$command
+            } else {
+                $url="$azuremanagement/$command"
+
+            }
+            
         }
 
-        $url="$azuremanagement/$command"
+
         # Call the API
-        write-verbose "call Azure Management API with method $Method"
+        write-verbose "call Azure Management API $url"
 
         if ($body) {
             write-verbose "FED Azure Management API requests BODY: "
@@ -194,7 +239,7 @@ function Call-AzureManagementAPI
         # Call the API
         try {
             if ($headerresponse) {
-                $response=Invoke-WebRequest -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body ($Body | ConvertTo-Json -Depth 5)
+                $response=Invoke-WebRequest -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body $jsonbody
            
                 write-verbose "return headers and conent"
                 $responseresult = @{
@@ -205,13 +250,13 @@ function Call-AzureManagementAPI
             
             
             } else {
-                $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body ($Body | ConvertTo-Json -Depth 5)
+                $response=Invoke-RestMethod -UseBasicParsing -Uri $url -Method $Method -Headers $headers  -ContentType "application/json; charset=utf-8" -body $jsonbody
    
                 write-verbose "Azure Management REST API call is successful with a response code 200"
                 if ($response.value) {
                     return $response.value
                 } else {
-                    return $NULL
+                    return $response
                 }
    
             }

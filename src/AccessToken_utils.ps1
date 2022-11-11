@@ -152,7 +152,7 @@ $AzureResources = @{
         "aad_login_common" =     "https://login.chinacloudapi.cn"
         "aad_graph_api"=         "https://graph.chinacloudapi.cn"
         "ms_graph_api"=          "https://microsoftgraph.chinacloudapi.cn"
-        "azure_mgmt_api" =       "https://management.chinacloudapi.cn"
+        "azure_mgmt_api" =       "https://management.chinacloudapi.cn/"
         "windows_net_mgmt_api" = "https://management.core.chinacloudapi.cn/"
         "appInsightsResourceId" =  'https://api.applicationinsights.azure.cn'
         "appInsightsTelemetryChannelResourceId" = 'https://dc.applicationinsights.azure.cn/v2/track'
@@ -1522,15 +1522,6 @@ function Prompt-Credentials
             $Tenant = "common"
         }
 
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = $resource.trimend('/')+"/.default"
-        } else {
-            $scope =  $scope+" "+$resource.trimend('/')+"/.default"
-        }
-        $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
-     
-
         $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
         $mdm = $script:AzureResources[$Cloud]['mdm']
 
@@ -1549,10 +1540,27 @@ function Prompt-Credentials
 
         # Create the url
         $request_id=(New-Guid).ToString()
-        if ($script:AzureKnwonClients.Values -contains $client_id) {
+        if ($script:AzureKnwonClients.Values -contains $ClientId) {
+        
+            if([String]::IsNullOrEmpty($scope))        
+            {
+                $scope ="openid"
+            } else {
+                $scope = $scope+" openid"
+            }
+            $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
 
             $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
         } else {
+
+                            
+            if([String]::IsNullOrEmpty($scope))        
+            {
+                $scope = $resource.TrimEnd('/')+"/.default"
+            } else {
+                $scope =  $scope+" "+$resource.TrimEnd('/')+"/.default"
+            }
+            $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
 
             $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
         }
@@ -1628,54 +1636,6 @@ function Prompt-Credentials
 }
 
 
-
-# Logs out the web sessions from LiveId
-# Aug 10th 2018
-function Clear-LiveIdSession
-{
-
-<#
-    .SYNOPSIS
-    Clear the SharePoint Online login session.
-
-    .DESCRIPTION
-    Clear the SharePoint Online login session created by Get-AADIntIdentityTokenByLiveId function.
-
-    .Parameter Tenant
-    The tenant name to login in to WITHOUT .sharepoint.com part
-    
-    .Example
-    PS C:\>Clear-AADIntLiveIdSession -Tenant mytenant
-#>
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$Tenant,
-        [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
-
-    )
-    Process
-    {
-
-        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
-        $sharepointuri = "https://$tenant.$($script:AzureResources[$Cloud]['sharepoint'])/_layouts/15/SignOut.aspx"
-
-        # Set variables
-        $auth_redirect="$aadloginuri/login.srf?wa=wsignoutcleanup1.0" # When to close the form
-        $url=$sharepointuri
-
-        # Create the form
-        $form=Create-LoginForm -Url $url -auth_redirect $auth_redirect
-
-        # Show the form and wait for the return value
-        $form.ShowDialog()
-
-        # Clear the webbrowser control
-        Clear-WebBrowser
-    }
-}
-
 # prompt Azure oAuth login window
 Function Show-OAuthWindow
   {
@@ -1685,11 +1645,7 @@ Function Show-OAuthWindow
     )
 
 
-    Clear-WebBrowser
-
-
-    
-    # write-verbose "oauth Url: $url"
+   # write-verbose "oauth Url: $url"
 
     $web  = New-Object -TypeName System.Windows.Forms.WebBrowser -Property @{Width=420; Height=600; Url=($url) }
 
@@ -1718,149 +1674,6 @@ Function Show-OAuthWindow
     $output
 }
  
-
-# Creates an interactive login form based on given url and auth_redirect.
-# Aug 10th 2018
-function Create-LoginForm
-{
-    [cmdletbinding()]
-    Param(
-        [Parameter(Mandatory=$True)]
-        [String]$Url,
-        [Parameter(Mandatory=$True)]
-        [String]$auth_redirect,
-        [Parameter(Mandatory=$False)]
-        [String]$Headers,
-        [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
-
-    )
-    Process
-    {
-        # Check does the registry key exists
-        $regPath="HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"
-        if(!(Test-Path -Path $regPath )){
-            Write-Warning "WebBrowser control emulation registry key not found!"
-            $answer = Read-Host -Prompt "Would you like to create the registry key? (Y/N)"
-            if($answer -eq "Y")
-            {
-                New-Item -ItemType directory -Path $regPath -Force
-            }
-        }
-
-        $azureportal = $script:AzureResources[$Cloud]['portal']
-
-        # Check the registry value for WebBrowser control emulation. Should be IE 11
-        $reg=Get-ItemProperty -Path $regPath
-
-        if([String]::IsNullOrEmpty($reg.'powershell.exe') -or [String]::IsNullOrEmpty($reg.'powershell_ise.exe'))
-        {
-            Write-Warning "WebBrowser control emulation not set for PowerShell or PowerShell ISE!"
-            $answer = Read-Host -Prompt "Would you like set the emulation to IE 11? Otherwise the login form may not work! (Y/N)"
-            if($answer -eq "Y")
-            {
-                Set-ItemProperty -Path $regPath -Name "powershell_ise.exe" -Value 0x00002af9
-                Set-ItemProperty -Path $regPath -Name "powershell.exe" -Value 0x00002af9
-                Write-Host "Emulation set. Restart PowerShell/ISE!"
-                return
-            }
-        }
-
-        # Create the form and add a WebBrowser control to it
- 
-        $form = New-Object Windows.Forms.Form
-        $form.Width = 560
-        $form.Height = 680
-        $form.FormBorderStyle=[System.Windows.Forms.FormBorderStyle]::FixedDialog
-        $form.TopMost = $true
-
-        $web = New-Object Windows.Forms.WebBrowser
-        $web.Size = $form.ClientSize
-        $web.Anchor = "Left,Top,Right,Bottom"
-        $form.Controls.Add($web)
-
-        $field = New-Object Windows.Forms.TextBox
-        $field.Visible = $false
-        $form.Controls.Add($field)
-		$field.Text = $auth_redirect
-
-        # Clear WebBrowser control cache
-        Clear-WebBrowser
-
-         # Add an event listener to track down where the browser is
-         $web.add_Navigated({
-            # If the url matches the redirect url, close with OK.
-            $curl=$_.Url.ToString()
-			$auth_redirect = $form.Controls[1].Text							   
-            Write-Debug "NAVIGATED TO: $($curl)"
-            if($curl.StartsWith($auth_redirect)) {
-
-                # Hack for Azure Portal Login. Jul 11th 2019 
-                # Check whether the body has the Bearer
-                if(![String]::IsNullOrEmpty($form.Controls[0].Document.GetElementsByTagName("script")))
-                {
-                    $script=$form.Controls[0].Document.GetElementsByTagName("script").outerhtml
-                    if($script.Contains('"oAuthToken":')){
-                        $s=$script.IndexOf('"oAuthToken":')+13
-                        $e=$script.IndexOf('}',$s)+1
-                        $oAuthToken=$script.Substring($s,$e-$s) | ConvertFrom-Json
-                        $at=$oAuthToken.authHeader.Split(" ")[1]
-                        $rt=$oAuthToken.refreshToken
-                        $script:AccessToken = @{"access_token"=$at; "refresh_token"=$rt}
-                        Write-Debug "ACCESSTOKEN $script:accessToken"
-                    }
-                    elseif($curl.StartsWith($azureportal))
-                    {
-                        Write-Debug "WAITING FOR THE TOKEN!"
-                        # Do nothing, wait for it..
-                        return
-                    }
-                }
-                
-                # Add the url to the hidden field
-                #$form.Controls[1].Text = $curl
-
-                $form.DialogResult = "OK"
-                $form.Close()
-                Write-Debug "PROMPT CREDENTIALS URL: $curl"
-            } # Automatically logs in -> need to logout first
-            elseif($curl.StartsWith($url)) {
-                # All others
-                Write-Verbose "Returned to the starting url, someone already logged in?"
-            }
-        })
-
-        
-        # Add an event listener to track down where the browser is going
-        $web.add_Navigating({
-            $curl=$_.Url.ToString()
-            Write-Verbose "NAVIGATING TO: $curl"
-            # SharePoint login
-
-         if($curl -eq $auth_redirect)
-           {
-                $_.Cancel=$True
-                $form.DialogResult = "OK"
-                $form.Close()
-           }
-        })
-        
-#        $web.ScriptErrorsSuppressed = $True
-
-        # Set the url
-        if([String]::IsNullOrEmpty($Headers))
-        {
-            $web.Navigate($url)
-        }
-        else
-        {
-            $web.Navigate($url,"",$null,$Headers)
-        }
-
-        # Return
-        return $form
-    }
-}
 
 
 function Clear-WebBrowser
@@ -2408,8 +2221,7 @@ function Get-AdminConsent
            
         } else {
 
-            $result = $output 
-            return $result
+            return $output 
 
         }
 
