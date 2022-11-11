@@ -58,7 +58,7 @@ function Call-AzureAADIAMAPI
             # convert to json format
             if ($($body | test-json -ErrorAction ignore)) {
                 $jsonbody = $body
-                $body = $body | convertfrom-json 
+                $body = $body | convertfrom-json -AsHashtable
         
             } else {
                 $jsonbody = $body |  ConvertTo-Json -Depth 5 
@@ -173,7 +173,7 @@ function Call-AzureManagementAPI
             # convert to json format
             if ($($body | test-json -ErrorAction ignore)) {
                 $jsonbody = $body
-                $body = $body | convertfrom-json 
+                $body = $body | convertfrom-json -AsHashtable
         
             } else {
                 $jsonbody = $body |  ConvertTo-Json -Depth 5 
@@ -233,7 +233,7 @@ function Call-AzureManagementAPI
             write-verbose "FED Azure Management API requests BODY: "
             foreach($key in $body.keys) {
                 write-verbose "$key`: $($body[$key])"
-            }
+            }           
         }
 
         # Call the API

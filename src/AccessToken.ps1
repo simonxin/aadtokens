@@ -20,6 +20,8 @@ function Get-AccessTokenFromCache
     Process
     {
         # Check if we got the AccessToken as parameter
+
+        $resource = $Resource.TrimEnd('/')
         if([string]::IsNullOrEmpty($AccessToken))
         {
             # Check if cache entry is empty

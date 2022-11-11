@@ -72,7 +72,7 @@ function Call-MSGraphAPI
             # convert to json format
             if ($($body | test-json -ErrorAction ignore)) {
                 $jsonbody = $body
-                $body = $body | convertfrom-json 
+                $body = $body | convertfrom-json -AsHashtable
         
             } else {
                 $jsonbody = $body |  ConvertTo-Json -Depth 5 
