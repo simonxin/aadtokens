@@ -2210,6 +2210,21 @@ Function test-azureresourceID {
 }
 
 
+Function test-json {
+    param(
+        [parameter(Mandatory = $true)]
+        [string]$json
+    )
+    try {
+        $powershelljson = ConvertFrom-Json $json -ErrorAction Stop;
+        $validJson = $true;
+    } catch {
+        $validJson = $false;
+    }
+
+    return $validJson
+}
+
 
 # function definition to tract resource ID
 Function extract-azureresourceID {

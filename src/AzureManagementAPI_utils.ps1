@@ -56,9 +56,13 @@ function Call-AzureAADIAMAPI
         
         if (![string]::IsNullOrEmpty($body)) {
             # convert to json format
-            if ($($body | test-json -ErrorAction ignore)) {
+            if ($(test-json $body)) {
                 $jsonbody = $body
-                $body = $body | convertfrom-json -AsHashtable
+                $bodyobj = $body | convertfrom-json
+
+                $hash = @{}
+                $bodyobj.psobject.properties | foreach{$hash[$_.Name]= $_.Value}
+                $body = $hash
         
             } else {
                 $jsonbody = $body |  ConvertTo-Json -Depth 5 
@@ -171,9 +175,13 @@ function Call-AzureManagementAPI
 
         if (![string]::IsNullOrEmpty($body)) {
             # convert to json format
-            if ($($body | test-json -ErrorAction ignore)) {
+            if ($(test-json $body)) {
                 $jsonbody = $body
-                $body = $body | convertfrom-json -AsHashtable
+                $bodyobj = $body | convertfrom-json # -AsHashtable only works in powershell 7
+
+                $hash = @{}
+                $bodyobj.psobject.properties | foreach{$hash[$_.Name]= $_.Value}
+                $body = $hash
         
             } else {
                 $jsonbody = $body |  ConvertTo-Json -Depth 5 
