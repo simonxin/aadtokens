@@ -1164,8 +1164,10 @@ function Get-OAuthInfo
         # default scope
         if([String]::IsNullOrEmpty($scope))        
         {
-            $scope = "openid profile"
-        } 
+            $scope ="openid"
+        } else {
+            $scope = $scope+" openid"
+        }
 
         # get tenant
         if([String]::IsNullOrEmpty($tenant))        

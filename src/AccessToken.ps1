@@ -2119,6 +2119,16 @@ function Get-AccessToken
         $aadgraph = $script:AzureResources[$Cloud]['aad_graph_api']
         $devicemanagementsvc = $script:AzureResources[$Cloud]['devicemanagementsvc']
         # fullfil redirect Uri if not provided to generate access token
+
+         # add offline access scope 
+         if ($SaveToCache -or $IncludeRefreshToken)  {
+                if ([string]::IsNullOrEmpty($scope)) {
+                     $scope = "offline_access"
+                 } else {
+                     $scope = $scope +" offline_access"
+                 }
+         }        
+        
         if([string]::IsNullOrEmpty($RedirectUri))
         {
             $RedirectUri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
@@ -2158,20 +2168,14 @@ function Get-AccessToken
         }
         else
         {
+
             
+
+
             # Check if we got credentials
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
            
-                # add offline access scope 
-                if ($SaveToCache -or $IncludeRefreshToken)  {
-                    if ([string]::IsNullOrEmpty($scope)) {
-                        $scope = "offline_access"
-                    } else {
-                        $scope = $scope +" offline_access"
-                    }
-                }
-
                 $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt
                 
             }
@@ -2187,7 +2191,7 @@ function Get-AccessToken
 
                   # call get oauth if the request contains a user name/password credential
                    if ($Credentials.username -like "*@*") {
-                       $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -tenant $tenant -clientSecret $clientSecret
+                       $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -tenant $tenant -clientSecret $clientSecret -scope $scope
                     # call client crentail auth flow
                     } else {
                         $client_token= Get-AccessTokenwithclientcredentail -Credentials $Credentials -Resource $Resource -Tenant $tenant
