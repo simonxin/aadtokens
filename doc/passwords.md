@@ -41,19 +41,17 @@ ROPC flow并不需要authorize endpoint完成身份验证。 可以直接使用t
 	# Define tanant for single tenant client
 	$tenant = "<your_tenantId>"
 	
+	# define redirect uri for custom application. Use redirecturi configured in desktop platform to get access token only
 	$clientID = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" # app registration clientI
 	$clientSecret = "<app_secrets>"
+	$redirecturi = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 
 	# Add user name and password as rquired credential for ROPC
 	$username = "user@contoso.com" 
 	$password = "password"
-	$SecurePassword=convertto-securestring -AsPlainText -Force -String $clientSecret
-	$credential = New-Object System.Management.Automation.PSCredential -ArgumentList ($clientID,$SecurePassword)
-	
-	# define redirect uri for custom application. Use redirecturi configured in desktop platform to get access token only
-	$clientId = <your_application_clientId>
-	$redirecturi = "https://login.microsoftonline.com/common/oauth2/nativeclient"
-	
+	$SecurePassword=convertto-securestring -AsPlainText -Force -String $password
+	$credential = New-Object System.Management.Automation.PSCredential -ArgumentList ($username,$SecurePassword)
+		
 	# get access token based on client credentials
 	$accesstoken = Get-Accesstoken -Credentials $credential -tenant $tenant -clientId $clientId -clientsecret $clientsecret -verbose
 
