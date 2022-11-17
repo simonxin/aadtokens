@@ -20,11 +20,10 @@ auth code的使用需要在对应AAD中注册application,添加single-page appli
 
 	$clientId = "<custom_app_clientId>"
 	$tenant = "<your_tenantId>"
-	$Scope = "https://microsoftgraph.chinacloudapi.cn/user.read"
 	$Resource = "https://microsoftgraph.chinacloudapi.cn"
 	$RedirectUri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 
-	$accesstoken = Get-AccessToken  -Resource $Resource -ClientId $clientId  -Tenant $Tenant -scope $scope -redirecturi $RedirectUri -verbose
+	$accesstoken = Get-AccessToken  -Resource $Resource -ClientId $clientId  -Tenant $Tenant -redirecturi $RedirectUri -verbose
 
 输出的申请链接示例：
 

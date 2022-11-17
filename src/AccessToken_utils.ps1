@@ -1559,9 +1559,9 @@ function Prompt-Credentials
             if([String]::IsNullOrEmpty($scope))        
             {
                 $scope = $resource.TrimEnd('/')+"/.default"
-            } else {
+            } elseif ($scope -eq 'offline_access') {
                 $scope =  $scope+" "+$resource.TrimEnd('/')+"/.default"
-            }
+            } 
             $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
 
             $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"

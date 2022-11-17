@@ -22,11 +22,10 @@ auth code flow, device code flow和 on behalf of flow中都可以申请refresh t
 	$clientID = "<your_client_id>"
 	$tenant = "<your_tenant_id>"
 
-	$Scope = "https://microsoftgraph.chinacloudapi.cn/user.read"
 	$Resource = "https://microsoftgraph.chinacloudapi.cn"
 	$RedirectUri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 	# set IncludeRefreshToken = true in command
-	$tokens = Get-AccessToken  -Resource $Resource -ClientId $clientId -scope $scope -IncludeRefreshToken $true -verbose
+	$tokens = Get-AccessToken  -Resource $Resource -ClientId $clientId -RedirectUri $RedirectUri -IncludeRefreshToken $true -verbose
 
 返回的tokens包含了2个token。 tokens[0] = Access_token, tokens[1] = refresh_token。 使用refersg token 刷新access token并不需要重新做身份认证。 
 
