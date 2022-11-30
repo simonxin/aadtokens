@@ -276,6 +276,47 @@ function Get-AccessTokenForPTA
     }
 }
 
+
+
+# Gets the access token for enabling or disabling PTA
+function Get-AccessTokenForPIM
+{
+<#
+    .SYNOPSIS
+    Gets OAuth Access Token for PIM
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
+        [System.Management.Automation.PSCredential]$Credentials,
+        [Parameter(ParameterSetName='PRT',Mandatory=$True)]
+        [String]$PRTToken,
+        [Parameter(ParameterSetName='SAML',Mandatory=$True)]
+        [String]$SAMLToken,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$KerberosTicket,
+        [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
+        [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
+        [switch]$UseDeviceCode,
+        [switch]$SaveToCache,
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process    
+    {
+
+        $resource = $script:AzureResources[$Cloud]["ms-pim"] # get MS-pim resource
+        $clientId = $script:AzureKnwonClients["graph_api"] 
+
+        Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $resource -RedirectUri $RedirectUri  -ClientId $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
+    }
+}
+
+
 # Gets the access token for Office Apps
 function Get-AccessTokenForOfficeApps
 {

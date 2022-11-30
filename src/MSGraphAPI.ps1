@@ -764,6 +764,33 @@ function get-MSGraphoauth2permissions
 }
 
 
+# grant admin consents permissions for target application
+function add-MSGraphAdminconsent
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$AccessToken,
+        [Parameter(Mandatory=$True)]
+        [String]$clientId,
+        [Parameter(Mandatory=$false)]
+        [String]$scope,
+        [Parameter(Mandatory=$false)]
+        [String]$resourceId,
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('Principal','AllPrincipals')]
+        [String]$consentType='AllPrincipals',
+        [Parameter(Mandatory=$false)]
+        [switch]$force
+    )
+    Process
+    {
+
+        $results=add-MSGraphUserconsent -clientId $clientId -resourceId $resourceid -scope $scope -consentType $consentType
+        return $results
+    }
+}
+
 # grant user consents permissions for target application
 function add-MSGraphUserconsent
 {
@@ -771,7 +798,7 @@ function add-MSGraphUserconsent
     Param(
         [Parameter(Mandatory=$false)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(Mandatory=$false)]
         [String]$UserPrincipalName,
         [Parameter(Mandatory=$True)]
         [String]$clientId,
@@ -779,6 +806,9 @@ function add-MSGraphUserconsent
         [String]$scope,
         [Parameter(Mandatory=$false)]
         [String]$resourceId,
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('Principal','AllPrincipals')]
+        [String]$consentType='Principal',
         [Parameter(Mandatory=$false)]
         [switch]$force
     )
@@ -798,11 +828,13 @@ function add-MSGraphUserconsent
             $resourceId="a58b0002-fd14-43d8-aa02-521cbb08493a"
         }
         
-        $user=Get-MSGraphUser -UserPrincipalName $UserPrincipalName
+        if ($UserPrincipalName) {
+            $user=Get-MSGraphUser -UserPrincipalName $UserPrincipalName
 
-        if (!$user){
-            write-error "not find user object for $UserPrincipalName"
-            return $NULL
+            if (!$user){
+                write-error "not find user object for $UserPrincipalName"
+                return $NULL
+            }
         }
 
         # Check if the admin consent has been granted already
@@ -829,51 +861,81 @@ function add-MSGraphUserconsent
             } 
             
         }
-
-        # get all user consent permissions
-        $oauth2permissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName 
-        
-        $clientpermission = $oauth2permissions | where {$_.clientid -eq $clientId -and $_.resourceId -eq $resourceId}
-        if ($clientpermission) {
-            
-            if ($force) {
-                write-verbose "force update user permissions with new scope: $scope, it will remove the existing user permissions"
-                clear-MSGraphUserconsent -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName -clientId $clientId -resourceId $resourceId
-
-            } else {
-                write-verbose "user consents are granted already for client $clientId, skip the process"
-                write-verbose $clientpermission
-                return $NULL
-            }
-            
-   
-        } 
         
         # add missed permissions only if not existing
-        
-        if ($missedpermissions -eq "") {
+        if ($consentType -eq 'AllPrincipals') {
+
+            # only grant missed admin consent
+            if ($adminsonentpermissions) {
+
+                
+                # if admin consent existing. do update only
+                if ($missedpermissions -ne ""){
+                    $newscopes = $($adminsonentpermissions.scope)+" "+$missedpermissions
+                    $API = $API+"/"+$($adminsonentpermissions.id)
+                    $oauth2gant = @{
+                        "scope"=$newscopes
+                    }
+
+                    $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -method PATCH -body $oauth2gant
+                }
+
+            } else {
+
+                $oauth2gant = @{
+                    "clientId"= $clientId
+                    "consentType"=$consentType
+                    "resourceId"=$resourceId
+                    "scope"=$missedpermissions
+                }
+                $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -method POST -body $oauth2gant
+
+            }
+
+        } else {
+
+            # get all user consent permissions
+            $oauth2permissions = get-MSGraphoauth2permissions -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName 
+            
+            $clientpermission = $oauth2permissions | where {$_.clientid -eq $clientId -and $_.resourceId -eq $resourceId}
+            if ($clientpermission -and $consentType -eq 'Principal') {
+                
+                if ($force) {
+                    write-verbose "force update user permissions with new scope: $scope, it will remove the existing user permissions"
+                    clear-MSGraphUserconsent -AccessToken $AccessToken -UserPrincipalName $UserPrincipalName -clientId $clientId -resourceId $resourceId                    
+
+                } else {
+                    write-verbose "user consents are granted already for client $clientId, skip the process"
+                    write-verbose $clientpermission
+                    return $NULL
+                }
+                
+            }             
+            
+            if ($missedpermissions -eq "") {
             $oauth2gant = @{
                 "clientId"= $clientId
-                "consentType"="Principal"
+                "consentType"=$consentType
                 "resourceId"=$resourceId
                 "scope"=$scope
                 "principalId"=$user.id
             }
 
-        } else {
+            } else {
 
             $oauth2gant = @{
                 "clientId"= $clientId
-                "consentType"="Principal"
+                "consentType"=$consentType
                 "resourceId"=$resourceId
                 "scope"=$missedpermissions
                 "principalId"=$user.id
             }
+            }
+
+            $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -method POST -body $oauth2gant
+        
         }
 
-
-        $results=Call-MSGraphAPI -AccessToken $AccessToken -API $API -ApiVersion $ApiVersion -method POST -body $oauth2gant
-        
         return $results
     }
 }

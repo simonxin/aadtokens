@@ -74,6 +74,7 @@ $AzureKnwonClients = @{
     "globaladmin" =         "7f59a773-2eaf-429c-a059-50fc5bb28b44" # https://docs.microsoft.com/en-us/rest/api/authorization/globaladministrator/elevateaccess#code-try-0
     "spo_shell" =           "9bc3ab49-b65d-410a-85ad-de819febfddc" # SPO Management Shell
     "aad_pin" =             "06c6433f-4fb8-4670-b2cd-408938296b8e" # AAD Pin redemption client
+    "PIM" =                 "01fc33a7-78ba-4d2f-a4b7-768e336e890e" # Azure PIM: https://api.azrbac.azurepim.identitygovernance.azure.cn
     "mysignins" =           "19db86c3-b2b9-44cc-b339-36da233a3be2" # https://mysignins.microsoft.com
     "office_management" =   "00b41c95-dab0-4487-9791-b9d2c32c80f2" # Office 365 Management (mobile app)
     "azure_broker" =        "29d9ed98-a469-4536-ade2-f981bc1d605e" # Microsoft Authentication Broker (Azure MDM client)
@@ -141,6 +142,7 @@ $AzureResources = @{
             "compute"   =            ".chinacloudapp.cn"
             "sharepoint" =           ".sharepoint.cn"
         }
+        "ms-pim"  =  "https://api.azrbac.azurepim.identitygovernance.azure.cn"
         "keyvault" =  "https://vault.azure.cn/"
         "storage"  =   "https://storage.azure.com/"
         "Cosmon" = "https://cosmos.azure.cn"
@@ -198,6 +200,7 @@ $AzureResources = @{
             "compute"   =            ".cloudapp.net"
             "sharepoint" =           ".sharepoint.com"
         }
+        "ms-pim"  =  "https://api.azrbac.mspim.azure.com"
         "keyvault" =  "https://vault.azure.com/"
         "storage"  =   "https://storage.azure.com/"
         "Cosmon" = "https://cosmos.azure.com"

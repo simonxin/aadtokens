@@ -85,3 +85,23 @@ admin consent授权完成:
 	clear-MSGraphUserconsent -clientId $spid -UserPrincipalName $user -resourceId $resourceid -verbose
 
 ![](./consent10.png)
+
+
+# 脚本使用示例四： 申请admin consent
+
+	# get service principal object ID with a application ID
+	$appid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+	$spid = $(get-MSGraphServicePrincipal -appid $appid).id
+	
+	# get service principal object ID with a target resource appId
+	# we can get knownclient for msgraph which is "00000003-0000-0000-c000-000000000000"
+	$msgraphappid = $(Get-AADknownclient msgraph).clientid
+	$resourceid = $(get-MSGraphServicePrincipal -appid $msgraphappid).id	
+	# required permissions for target resource
+	$scope="openid profile user.read"
+
+	# Grant Admin consents which is using AllPrincipals as consentType
+	add-MSGraphadminconsent -clientId $spid -resourceId $resourceid -scope $scope -consentType "AllPrincipals" -force -verbose
+
+更新admin consent:
+![](./consent11.png)
