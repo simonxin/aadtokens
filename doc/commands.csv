@@ -87,3 +87,12 @@ Get-TenantGuestAccess,Get-TenantGuestAccess,Command to get current tenant guest 
 Set-TenantGuestAccess,"Set-TenantGuestAccess -level ""full""","Command to set tenant guest access policy. Allowed values: full, normal, Restricted"
 Enable-TenantMsolAccess,Enable-TenantMsolAccess,Command to enable Msol powershell access on current tenant
 Disable-TenantMsolAccess,Disable-TenantMsolAccess,Command to disable Msol powershell access on current tenant
+PIM,,
+Call-MSPIMAPI,"Call-MSPIMAPI -AccessToken $AccessToken -API 'privilegedAccess/aadGroups/resources'  -queryString  ""`$filter=displayname eq 'mypag'""  -method GET",Command to call PIM API
+get-PIMGroups,get-PIMGroups -groupid $groupId -verbose,command to get PAGs
+get-PIMGrouprolesettings,get-PIMGrouprolesettings -groupid $groupid -rolename 'Owner',"command to get PAG roles and role settings, if using rolename, it is case sensitive"
+get-PIMGroupassignments,get-PIMGroupassignments -groupid $groupid -assignmentstate 'Active' -subjectID $subjectId -roledefinitionID $roledefinitionID,command to get PAG assignments
+Add-PIMGroupassignments,Add-PIMGroupassignments -groupid $groupid -assignmentstate 'Eligible' -subjectID $subjectId -roledefinitionID $roledefinitionID -verbose,command to add new PAG assignments
+Update-PIMGroupassignments,Update-PIMGroupassignments -groupid $groupid -assignmentstate 'Eligible' -subjectID $subjectId -roledefinitionID $roledefinitionID -duration 7 -durationunit D -verbose,command to add update PAG assignments with a new time range
+remove-PIMGroupassignments,Remove-PIMGroupassignments -groupid $groupid -assignmentstate 'Eligible' -subjectID $subjectId -roledefinitionID $roledefinitionID -verbose,command to remove PAG assignments
+Activate-PIMGroupassignments,Activate-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -verbose,command to activate an eligible PAG assignments

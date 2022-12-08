@@ -1068,7 +1068,7 @@ function clear-MSGraphUserconsent
     Process
     {
         # default resourceId for MS graph API
-        if ([String]::IsNullOrEmpty($scope)) {
+        if ([String]::IsNullOrEmpty($resourceId)) {
             $resourceId="a58b0002-fd14-43d8-aa02-521cbb08493a"
         }
         

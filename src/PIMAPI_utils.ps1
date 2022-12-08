@@ -9,13 +9,13 @@ function Call-MSPIMAPI
     Param(
         [Parameter(Mandatory=$false)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$true)]
         [String]$API,
         [Parameter(Mandatory=$False)]
         [ValidateSet('v1','v2','v3')]
         [String]$ApiVersion="v2",
         [Parameter(Mandatory=$False)]
-        [ValidateSet('Put','Get','Post','Delete','PATCH','update')]
+        [ValidateSet('Put','Get','Post','Delete','PATCH')]
         [String]$Method="Get",
         [Parameter(Mandatory=$False)]
         $Body,
@@ -92,20 +92,13 @@ function Call-MSPIMAPI
         $API = $API.TrimStart("/")
 
         # Create the url
-        # use /me as ms graph API if not provided
-        if ([string]::IsNullOrEmpty($API)) {
-            $url = "$msgraphapi/$($ApiVersion)/me"
-        } else { 
-
-            # add query string if exists
-            if([String]::IsNullOrEmpty($QueryString)) {
-                $url = "$msgraphapi/$($ApiVersion)/$($API)"
+        # add query string if exists
+        if([String]::IsNullOrEmpty($QueryString)) {
+                $url = "$mspimapi/api/$($ApiVersion)/$($API)"
             } else {
-                $url = "$msgraphapi/$($ApiVersion)/$($API)?$QueryString"
-            }
+                $url = "$mspimapi/api/$($ApiVersion)/$($API)?$QueryString"
         }
-
-
+        
         write-verbose "call PIM API with method $Method"
 
         if ($body) {
@@ -117,19 +110,12 @@ function Call-MSPIMAPI
 
         # Call the API
         try {
+            $error.Clear()
             $response = Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType "application/json" -Method $Method  -Headers $Headers -Body $jsonbody
-           
         }
         catch {
-
-            $e = $_.Exception
-            $memStream = $e.Response.GetResponseStream()
-            $readStream = New-Object System.IO.StreamReader($memStream)
-            while ($readStream.Peek() -ne -1) {
-                Write-Error $readStream.ReadLine()
-            }
-            $readStream.Dispose()
-
+           $error
+           return $null
         }
 
         # Check if we have more items to fetch

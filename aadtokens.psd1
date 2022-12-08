@@ -72,7 +72,8 @@ FunctionsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-c
 "Call-MSGraphAPI","Get-AzureSignInLog","Get-AzureAuditLog","Get-MSGraphUser","Get-MSGraphUserAppRoleAssignments","Get-MSGraphUserOwnedDevices","Get-MSGraphUserRegisteredDevices",
 "Get-MSGraphUserLicenseDetails","Get-MSGraphUserMemberOf","Get-MSGraphUserDirectReports","Get-MSGraphGroupOwners","Get-MSGraphGroupMembers","Get-MSGraphRoles","Get-MSGraphRoleMembers",
 "Get-MSGraphDomains","Get-TenantAuthPolicy","Get-TenantGuestAccess","Set-TenantGuestAccess","Enable-TenantMsolAccess","Disable-TenantMsolAccess",
-"get-MSGraphServicePrincipal","get-MSGraphoauth2permissions","add-MSGraphUserconsent","clear-MSGraphUserconsent","test-MSGraphUserconsent","add-MSGraphAdminconsent"
+"get-MSGraphServicePrincipal","get-MSGraphoauth2permissions","add-MSGraphUserconsent","clear-MSGraphUserconsent","test-MSGraphUserconsent","add-MSGraphAdminconsent",
+"Call-MSPIMAPI","get-PIMGroups","get-PIMGrouprolesettings","get-PIMGroupassignments","remove-PIMGroupassignments","Add-PIMGroupassignments","Update-PIMGroupassignments","Activate-PIMGroupassignments"
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -85,7 +86,8 @@ CmdletsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-cac
 "Call-MSGraphAPI","Get-AzureSignInLog","Get-AzureAuditLog","Get-MSGraphUser","Get-MSGraphUserAppRoleAssignments","Get-MSGraphUserOwnedDevices","Get-MSGraphUserRegisteredDevices",
 "Get-MSGraphUserLicenseDetails","Get-MSGraphUserMemberOf","Get-MSGraphUserDirectReports","Get-MSGraphGroupOwners","Get-MSGraphGroupMembers","Get-MSGraphRoles","Get-MSGraphRoleMembers",
 "Get-MSGraphDomains","Get-TenantAuthPolicy","Get-TenantGuestAccess","Set-TenantGuestAccess","Enable-TenantMsolAccess","Disable-TenantMsolAccess",
-"get-MSGraphServicePrincipal","get-MSGraphoauth2permissions","add-MSGraphUserconsent","clear-MSGraphUserconsent","test-MSGraphUserconsent","add-MSGraphAdminconsent"
+"get-MSGraphServicePrincipal","get-MSGraphoauth2permissions","add-MSGraphUserconsent","clear-MSGraphUserconsent","test-MSGraphUserconsent","add-MSGraphAdminconsent",
+"Call-MSPIMAPI","get-PIMGroups","get-PIMGrouprolesettings","get-PIMGroupassignments","remove-PIMGroupassignments","Add-PIMGroupassignments","Update-PIMGroupassignments","Activate-PIMGroupassignments"
 )
 
 # Variables to export from this module

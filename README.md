@@ -88,6 +88,10 @@ If the current required cloud is not the expected one, you can set default cloud
 
 ### [Admin/user consents for delegration permissions](./doc/userconsents.md)
 
+# Use PIM API
+
+### [PIM API usage - Privileged Access Group only](./doc/PIM.md)
+
 
 # Powershell Modules Cmdlets reference
 	

@@ -2323,7 +2323,6 @@ function Get-AccessToken
 }
 
 # Gets the access token using a refresh token
-# Jun 8th 2020
 function Get-AccessTokenWithRefreshToken
 {
     [cmdletbinding()]
@@ -2349,10 +2348,7 @@ function Get-AccessTokenWithRefreshToken
     {
 
         # default scope
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = "offline_access " + $Resource.TrimEnd('/')+"/.default"
-        }     
+        $scope = "offline_access " + $Resource.TrimEnd('/')+"/.default"
 
         # Set the body for API call
         $body = @{
