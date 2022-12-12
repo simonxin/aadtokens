@@ -1,21 +1,26 @@
-# This is a basic workflow to help you get started with Actions
-# Controls when the workflow will run
+name: Run Azure Login with OpenID Connect and PowerShell
 on: [push]
 
-name: AzureLoginSample
+permissions:
+      id-token: write
+      contents: read
+      
+jobs: 
+  Windows-latest:
+      runs-on: windows-latest
+      steps:
+        - name: OIDC Login to Azure Public Cloud with AzPowershell (enableAzPSSession true)
+          uses: azure/login@v1
+          with:
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
+            environment: 'AzureChinaCloud'
+            enable-AzPSSession: true
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log in with Azure
-        uses: azure/login@v1
-        with:
-          creds: '${{ secrets.AZURE_CREDENTIALS }}'
-          environment: 'AzureChinaCloud'
-          enable-AzPSSession: true
-      - name: Azure PowerShell Action
-        uses: Azure/powershell@v1
-        with:
-          inlineScript: Get-AzResourceGroup -Name "hditest"
-          azPSVersion: "latest"
+        - name: 'Get resource group with PowerShell action'
+          uses: azure/powershell@v1
+          with:
+             inlineScript: |
+               Get-AzResourceGroup
+             azPSVersion: "latest"
