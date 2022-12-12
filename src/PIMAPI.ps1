@@ -194,13 +194,13 @@ function get-PIMGroupassignments
     Param(
         [Parameter(Mandatory=$false)]
         [String]$AccessToken,
-        [Parameter(Mandatory=$True)]
+        [Parameter(ParameterSetName='group', Mandatory=$True)]
         [String]$groupid,
-        [Parameter(Mandatory=$false)]
+        [Parameter(ParameterSetName='group',Mandatory=$false)]
         [String]$subjectID,
-        [Parameter(Mandatory=$false)]
+        [Parameter(ParameterSetName='group',Mandatory=$false)]
         [String]$roledefinitionID,
-        [Parameter(Mandatory=$false)]
+        [Parameter(ParameterSetName='group',Mandatory=$false)]
         [ValidateSet('Eligible','Active')]
         [String]$assignmentstate,
         [Parameter(Mandatory=$false)]
@@ -211,29 +211,30 @@ function get-PIMGroupassignments
 
         $API="privilegedAccess/aadGroups/roleAssignments"
 
-        $querystring="`$expand=linkedEligibleRoleAssignment,subject,scopedResource,roleDefinition(`$expand=resource)"
-        $queryString = "$querystring&`$filter=(roleDefinition/resource/id eq '$groupId')"
+        
+       $querystring="`$expand=linkedEligibleRoleAssignment,subject,scopedResource,roleDefinition(`$expand=resource)"
 
-        # add filter for roledefinitionID, subjectID and assignmentState if exists
-        if (![string]::IsNullOrEmpty($roledefinitionID)) {
-            $queryString = "$querystring and (roledefinitionID eq '$roledefinitionID')"
-        }
+            $queryString = "$querystring&`$filter=(roleDefinition/resource/id eq '$groupId')"
+            # add filter for roledefinitionID, subjectID and assignmentState if exists
+            if (![string]::IsNullOrEmpty($roledefinitionID)) {
+                $queryString = "$querystring and (roledefinitionID eq '$roledefinitionID')"
+            }
 
-        if (![string]::IsNullOrEmpty($assignmentState)) {
-            $queryString = "$querystring and (assignmentState eq '$assignmentstate')"
-        }
+            if (![string]::IsNullOrEmpty($assignmentState)) {
+                $queryString = "$querystring and (assignmentState eq '$assignmentstate')"
+            }
 
-        if (![string]::IsNullOrEmpty($subjectID)) {
-            $queryString = "$querystring and (subjectId eq '$subjectID')"
-        }
+            if (![string]::IsNullOrEmpty($subjectID)) {
+                $queryString = "$querystring and (subjectId eq '$subjectID')"
+            }
 
-        # limit the query to return top 100 by default
-        $queryString = "$querystring&`$count=true&`$orderby=roleDefinition/displayName&`$skip=0&`$top=$count"
+            # limit the query to return top 100 by default
+            $queryString = "$querystring&`$count=true&`$orderby=roleDefinition/displayName&`$skip=0&`$top=$count"
 
         $results=Call-MSPIMAPI -AccessToken $AccessToken -API $API -QueryString $queryString
         
         if ($results) { 
-            return $results | select @{N='assignmentid';E={$_.id}},@{N='groupid';E={$_.resourceid}} , roleDefinitionId,subjectId,memberType,startDateTime,endDateTime,assignmentState,status, subject
+            return $results | select @{N='assignmentid';E={$_.id}}, linkedEligibleRoleAssignmentid, @{N='groupid';E={$_.resourceid}} ,  roleDefinitionId,subjectId,memberType,startDateTime,endDateTime,assignmentState,status, subject
         } else {
             return $NULL
         }
@@ -256,23 +257,63 @@ function remove-PIMGroupassignments
         [Parameter(Mandatory=$True)]
         [String]$subjectId,
         [Parameter(Mandatory=$false)]
+        [String]$linkedEligibleRoleAssignmentId,
+        [Parameter(Mandatory=$false)]
         [ValidateSet('Eligible','Active')]
-        [String]$assignmentstate='Eligible'
+        [String]$assignmentstate='Eligible',
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('AdminRemove','UserRemove')]
+        [String]$type='AdminRemove',
+        [Parameter(Mandatory=$false)]
+        [String]$reason="Remove Assignment"
     )
     Process
     {
 
-        $type='AdminRemove'
         $API="privilegedAccess/aadGroups/roleAssignmentRequests"
 
-        $body=@{
-            "resourceId"=$groupID
-            "roleDefinitionId"=$roledefinitionID
-            "assignmentState"=$assignmentstate
-            "subjectId"=$subjectId
-            "scopedResourceId"=$null
-            "type"=$type
-        } 
+        if($assignmentstate -eq 'Active') {
+
+            $assignment = get-PIMGroupassignments -groupid $groupid -roledefinitionID $roledefinitionID -subjectID $subjectId -assignmentstate $assignmentstate 
+            if(![string]::IsNullOrEmpty($assignment.linkedEligibleRoleAssignmentId)){
+
+                $body=@{
+                    "linkedEligibleRoleAssignmentId"=$assignment.linkedEligibleRoleAssignmentId
+                    "resourceId"=$groupID
+                    "roleDefinitionId"=$roledefinitionID
+                    "assignmentState"=$assignmentstate
+                    "subjectId"=$subjectId
+                    "scopedResourceId"=$null
+                    "type"='UserRemove'
+                    "reason"='Deactive assignment'
+                } 
+            } else {
+
+                $body=@{
+                    "resourceId"=$groupID
+                   "roleDefinitionId"=$roledefinitionID
+                   "assignmentState"=$assignmentstate
+                   "subjectId"=$subjectId
+                   "scopedResourceId"=$null
+                   "type"='AdminRemove'
+                   "reason"='remove assignment'
+               } 
+   
+            }
+           
+        } else {
+
+            $body=@{
+                 "resourceId"=$groupID
+                "roleDefinitionId"=$roledefinitionID
+                "assignmentState"=$assignmentstate
+                "subjectId"=$subjectId
+                "scopedResourceId"=$null
+                "type"='AdminRemove'
+                "reason"='remove assignment'
+            } 
+
+        }
 
         Call-MSPIMAPI -AccessToken $AccessToken -API $API -method POST -body $body            
     
@@ -308,13 +349,15 @@ function Add-PIMGroupassignments
         [String]$reason='Add userassignment to PAG',
         [Parameter(Mandatory=$false)]
         [ValidateSet('Eligible','Active')]
-        [String]$assignmentstate='Eligible'
+        [String]$assignmentstate='Eligible',
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('AdminAdd','UserAdd')]
+        [String]$type='AdminAdd'
     )
     Process
     {
 
         $API="privilegedAccess/aadGroups/roleAssignmentRequests"
-        $type='AdminAdd'
 
         $assignments = get-PIMGroupassignments -groupid $groupid -assignmentstate $assignmentstate -subjectID $subjectId -roledefinitionID $roledefinitionID
         if ($assignments) {
@@ -340,7 +383,6 @@ function Add-PIMGroupassignments
                 default {$startdurationminutes = $startduration * 60 *24}
         }
        
-
 
         $utcdate = $(get-date).ToUniversalTime() 
         $startutcdate = $(get-date -date $utcdate).AddMinutes($startdurationminutes)
@@ -461,6 +503,16 @@ function Update-PIMGroupassignments
             return $null
         }
 
+
+        # for actived assignment, will remove the current activation and add a new activation assignment
+        if(![string]::IsNullOrEmpty($assignment.linkedEligibleRoleAssignmentId -and $assignmentstate -eq 'Active')){
+           
+            write-verbose "there is existing activation assignment found for: $subjectId in group $groupid with role: $roledefinitionID; will do remove and add a new one"
+            remove-PIMGroupassignments -groupid $groupid -subjectId $subjectId -roledefinitionID $roledefinitionID -assignmentstate 'Active'
+            # add new activation window
+            Activate-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -startduration $startduration -duration $duration -durationunit $durationunit
+     
+        }
        
 
         $role = get-PIMGrouprolesettings -groupid $groupid | where { $_.roledefinitionID -eq  $roledefinitionID}
@@ -559,7 +611,7 @@ function Activate-PIMGroupassignments
         [Parameter(Mandatory=$false)]
         [int]$duration=0, # default is 0. if added, swtich the start time to new time
         [Parameter(Mandatory=$false)]
-        [int]$minduration=10, 
+        [int]$minduration=30, 
         [Parameter(Mandatory=$false)]
         [ValidateSet('D','H','M')]
         [String]$durationunit='H', # D = day, H = hour, M=minutes.
@@ -627,10 +679,12 @@ function Activate-PIMGroupassignments
         # add linked assignment            
            
  
-        Add-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -linkedEligibleRoleAssignmentId $assignment.assignmentid -startduration $startdurationminutes -duration $durationminutes -durationunit 'M' -assignmentstate 'Active' -reason "Active Eligible assignment"
+        Add-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -linkedEligibleRoleAssignmentId $($assignment.assignmentid) -startduration $startdurationminutes -duration $durationminutes -durationunit 'M' -assignmentstate 'Active' -type 'UserAdd' -reason "Active Eligible assignment"
           
     }
 }
+
+
 
 
 

@@ -85,8 +85,8 @@ PAG (privileged Access Group) 目前在MS Graph API中并不支持。
 
 # 脚本使用示例六： 更改PAG assignment
 
-	# add assignments (default will be Eligible assignment, but can use -assignmentstate to define assignmentstate)
-	Update-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -assignmentstate 'Active' -verbose
+	# Update assignment; add more 30 minutes
+	Update-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -assignmentstate 'Active' -duration 30 -durationunit M -verbose
 
 ![](./pim6.png)
 
