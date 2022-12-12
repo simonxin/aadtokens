@@ -16,7 +16,7 @@ jobs:
             tenant-id: ${{ secrets.AZURE_TENANT_ID }}
             subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} 
             environment: 'AzureChinaCloud'
-            audience: https://microsoftgraph.chinacloudapi.cn/User.Read
+            audience: api://AzureADTokenExchange
             enable-AzPSSession: true
 
         - name: 'Get resource group with PowerShell action'
