@@ -38,12 +38,7 @@ PAG (privileged Access Group) 目前在MS Graph API中并不支持。
 	
 ![](./pim2.png)
 
-	详细信息: call PIM API with method Get
-	详细信息: GET https://api.azrbac.azurepim.identitygovernance.azure.cn/api/v2/privilegedAccess/aadGroups/roleSettingsv2?$expand=resource,roleDefinition($expand=resource)&$filter=(resource/id eq
-	'89401849-1f34-4478-9433-ee98626e40fa') and (roleDefinition/displayName eq 'Member') with 0-byte payload
-	详细信息: received 5088-byte response of content type application/json; odata.metadata=minimal; odata.streaming=true
-
-		
+	
 
 # 脚本使用示例三： 查询PAG assignment
 
@@ -85,8 +80,9 @@ PAG (privileged Access Group) 目前在MS Graph API中并不支持。
 
 # 脚本使用示例六： 更改PAG assignment
 
-	# Update assignment; add more 30 minutes
-	Update-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -assignmentstate 'Active' -duration 30 -durationunit M -verbose
+	# In case, if it is activated window for a eligible assignment, will cancel the current activation window and add a new one with new time range
+	# Or it will update the active assignment and set the new duraion
+	Update-PIMGroupassignments -groupid $groupId -roleDefinitionId $roleDefinitionId -subjectId $subjectID -assignmentstate 'Active' -duration 60 -durationunit M -verbose
 
 ![](./pim6.png)
 
