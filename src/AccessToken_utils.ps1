@@ -876,6 +876,9 @@ function Get-TenantID
     )
     Process
     {
+
+        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
+
         if([String]::IsNullOrEmpty($AccessToken))
         {
 
@@ -888,6 +891,7 @@ function Get-TenantID
           {
                 $OpenIdConfig = Get-OpenIDConfiguration -Domain $Domain -cloud $Cloud
                 $TenantId = $OpenIdConfig.authorization_endpoint.Split("/")[3]
+                $currentaadloginuri = "https://$($OpenIdConfig.authorization_endpoint.Split("/")[2])"
           }
           catch
           {
@@ -900,8 +904,13 @@ function Get-TenantID
             $TenantId=(Read-Accesstoken($AccessToken)).tid
         }
 
-        # Return
-        return $TenantId
+        if ($aadloginuri -eq $currentaadloginuri) {
+            return $TenantId
+        } else {
+            # Return null if the tenant ID does not match with the current cloud
+            return $NULL
+
+        }
     }
 }
 
