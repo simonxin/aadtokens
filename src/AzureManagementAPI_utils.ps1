@@ -24,29 +24,32 @@ function Call-AzureAADIAMAPI
         $aadiam = $script:AzureResources[$Cloud]['aad_iam'].trimend("/")  # get AAD IAM endpoint
 
         $clientId = $script:AzureKnwonClients['graph_api'] # client ID of azure portal
+
         $aadiamapi = $script:AzureKnwonClients["adibizaux"] # aad iam
 
 
         
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            try {
-                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $aadiamapi 
-            }
-            catch {
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            
+            if ([string]::IsNullOrEmpty($AccessToken)) {
+            
                 write-verbose "no valid AAD IAM access token detected in cache. try to request a new access token"
-                Get-AccessTokenForAADIAMAPI -SaveToCache 
-                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $aadiamapi 
+                $accesstoken = get-accesstokenformsgraph -SaveToCache
+               # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
             }
             
-        } else {
+        } 
 
-            # Check the expiration
-            if(Is-AccessTokenExpired($AccessToken))
+
+        # Check if the giving token is expired or not existing
+        if($(Is-AccessTokenExpired($AccessToken)) -or [string]::IsNullOrEmpty($AccessToken))
             {
-                write-verbose "AccessToken has expired"
+                write-verbose "AccessToken has expired or not valid"
                 throw "AccessToken has expired or no invalid token exists"
             }
-        }
+                
+        
 
         $headers=@{
             "Authorization" = "Bearer $AccessToken"
@@ -123,6 +126,8 @@ function Call-AzureManagementAPI
         $Body,
         [Parameter(Mandatory=$false)]
         $AccessToken,
+        [Parameter(Mandatory=$false)]
+        $clientId,
         [Parameter(ParameterSetName='Command',Mandatory=$True)]
         [string]$Command,
         [Parameter(ParameterSetName='resourceId',Mandatory=$true)]
@@ -143,28 +148,32 @@ function Call-AzureManagementAPI
     {
 
         $azuremanagement = $script:AzureResources[$Cloud]['azure_mgmt_api'].trimend("/") # get Azure Management API
-        $clientId = $script:AzureKnwonClients["graph_api"]
+
+        if ([string]::IsNullOrEmpty($clientId)) {
+            $clientId = $script:AzureKnwonClients["graph_api"]
+        }
+    
    
 
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            try {
-                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $azuremanagement 
-            }
-            catch {
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            
+            if ([string]::IsNullOrEmpty($AccessToken)) {
+            
                 write-verbose "no valid Azure Management access token detected in cache. try to request a new access token"
-                get-accesstokenforazuremanagement -SaveToCache
-                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $azuremanagement 
+                $accesstoken = get-accesstokenformsgraph -SaveToCache
+               # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
             }
             
-        } else {
+        } 
 
-            # Check if the giving token is expired or not
-            if(Is-AccessTokenExpired($AccessToken))
+        # Check if the giving token is expired or not existing
+        if($(Is-AccessTokenExpired($AccessToken)) -or [string]::IsNullOrEmpty($AccessToken))
             {
-                write-verbose "AccessToken has expired"
+                write-verbose "AccessToken has expired or not valid"
                 throw "AccessToken has expired or no invalid token exists"
             }
-        }
+                
 
         
         $headers=@{

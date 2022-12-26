@@ -19,14 +19,14 @@ Resource Owner Password Credentials (ROPC)  基本流程：
 
 # 脚本使用示例一： 使用username/pssword申请MSgraph access token 
 
-	# Define tanant as it is required for ROPC
+	# Define tanant as it is required for ROPC 
 	$tenant = "<your_tenantId>"
 
 	# Add user name and password as rquired credential for ROPC
 	$username = "user@contoso.com" 
 	$password = "password"
-	$SecurePassword=convertto-securestring -AsPlainText -Force -String $clientSecret
-	$credential = New-Object System.Management.Automation.PSCredential -ArgumentList ($clientID,$SecurePassword)
+	$SecurePassword=convertto-securestring -AsPlainText -Force -String $password
+	$credential = New-Object System.Management.Automation.PSCredential -ArgumentList ($username,$SecurePassword)
 	
 	# get access token based for msgraph
 	$accesstoken = Get-AccesstokenforMsgraph -Credentials $credential -tenant $tenant -verbose

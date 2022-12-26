@@ -112,8 +112,8 @@ $resources=@{
 #>
 
 # Stored tokens (access & refresh)
-$tokens=@{}
-$refresh_tokens=@{}
+$tokens=@{} # hash table
+$refresh_tokens=@{} # hash table
 
 
 ## get valid AAD endpoint 
@@ -1163,6 +1163,10 @@ function Get-OAuthInfo
         [Parameter(Mandatory=$false)]
         [String]$scope,
         [Parameter(Mandatory=$false)]
+        [String]$resource,
+        [Parameter(Mandatory=$false)]
+        [bool]$IncludeRefreshToken=$false,
+        [Parameter(Mandatory=$false)]
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894",
         [Parameter(Mandatory=$false)]
         [String]$clientsecret, # required when the client ID is not first-party app
@@ -1174,12 +1178,8 @@ function Get-OAuthInfo
     {
 
         # default scope
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope ="openid"
-        } else {
-            $scope = $scope+" openid"
-        }
+        $scopevalue = get-oauthscopes -resource $resource -scope $scope -authflow 'code' -IncludeRefreshToken $IncludeRefreshToken
+
 
         # get tenant
         if([String]::IsNullOrEmpty($tenant))        
@@ -1214,7 +1214,7 @@ function Get-OAuthInfo
                     "grant_type"="password"
                     "username"=$Credentials.UserName
                     "password"=$Credentials.GetNetworkCredential().Password
-                    "scope"="$scope"
+                    "scope"="$scopevalue"
                 }
 
             } else {
@@ -1228,7 +1228,7 @@ function Get-OAuthInfo
                         "grant_type"="password"
                         "username"=$Credentials.UserName
                         "password"=$Credentials.GetNetworkCredential().Password
-                        "scope"="$scope"
+                        "scope"="$scopevalue"
                     }
 
                 } else {
@@ -1238,7 +1238,7 @@ function Get-OAuthInfo
                         "grant_type"="password"
                         "username"=$Credentials.UserName
                         "password"=$Credentials.GetNetworkCredential().Password
-                        "scope"="$scope"
+                        "scope"="$scopevalue"
                     }
                  }   
     
@@ -1348,6 +1348,7 @@ function Get-OAuthInfo
             $oauthifno = @{
                 id_token = $jsonResponse.id_token
                 access_token = $jsonResponse.access_token
+                refresh_token = $jsonResponse.refresh_token
             }
 
             return $oauthifno            
@@ -1502,13 +1503,93 @@ function Read-Accesstoken
 }
 
 
+# Prompts scope based on author flows
+# limited to use a single resource
+function get-oauthscopes
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$Resource,
+        [Parameter(Mandatory=$false)]
+        [String]$scope, # multiple scope required to seperate with '' or ,
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("code", "password","client_credentials","device_code","jwt-bearer","legacy","obo")]
+        [String]$authflow,
+        [Parameter(Mandatory=$False)]
+        [bool]$IncludeRefreshToken=$false
+    )
+    Process
+    {
+        $scopevalue = ''
+    
+        if ([string]::IsNullOrEmpty($scope) -or $scope -eq '') {
+            $scope = '.default'
+        }
+        $scopeitems = $scope.split(' ,')
+        $resource=$resource.TrimEnd('/')
+        write-verbose "set scope for auth flow: $authflow"
+
+        if ([string]::IsNullOrEmpty($Resource)) {
+            $resource = $script:AzureResources[$Cloud]["ms_graph_api"] # get MS graph resource based on cloud
+        }
+
+        write-verbose "current scope $scope"
+
+
+        if ($authflow -like 'client_credentials') {
+            if ($resource -like "http://*" -or $resource -like 'https://*') {
+                $scopevalue = $scopevalue + " $($resource.TrimEnd('/'))/.default"
+            } else {
+                $scopevalue = $scopevalue + " API://$resource/.default"
+            }                            
+        } elseif($authflow -like 'legacy') {
+   
+            foreach ( $item in  $scopeitems) {
+                $scopevalue = $scopevalue + " $($item.split("/")[-1])"
+            }
+        } else {
+   
+                foreach ( $item in  $scopeitems) {
+
+                        if ($item -like "http://*" -or $item -like 'https://*' -or $item -like "api:*" -or $item -like "spn:*")  {
+                            $scopevalue = $scopevalue + " $item" 
+                        } else {
+                            # bind with resource with the scopes
+
+                            if ($item -like 'user_impersonation') {
+                                $itemvalue = '.default'
+                            } else {
+                                $itemvalue = $item
+                            }
+
+                            if ($resource -like "http://*" -or $resource -like 'https://*') {
+                                $scopevalue = $scopevalue + " $resource/$itemvalue"
+                            } else {
+                                $scopevalue = $scopevalue + " api://$resource/$itemvalue"
+                            }
+                        }
+                    }
+        }
+           
+
+        # default scope
+        if ($IncludeRefreshToken) {
+            $scopevalue =  $scopevalue + " offline_access"
+        } 
+        
+        return $scopevalue.TrimStart(' ')
+    
+    }
+}
+
 # Prompts for credentials and gets the access token
 # Supports MFA, federation, etc.
 function Prompt-Credentials
 {
     [cmdletbinding()]
     Param(
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$true)]
         [String]$Resource,
         [Parameter(Mandatory=$true)]
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
@@ -1522,6 +1603,8 @@ function Prompt-Credentials
         [String]$RedirectUri,
         [Parameter(Mandatory=$false)]
         [String]$scope,
+        [Parameter(Mandatory=$false)]
+        [bool]$IncludeRefreshToken=$false,
         [Parameter(Mandatory=$false)]
         [String]$prompt="login",  # values like login, consent, admin_consent, none      
         [Parameter(Mandatory=$false)]
@@ -1556,25 +1639,19 @@ function Prompt-Credentials
         $request_id=(New-Guid).ToString()
         if ($script:AzureKnwonClients.Values -contains $ClientId) {
         
-            if([String]::IsNullOrEmpty($scope))        
+            if([string]::IsNullOrEmpty($scope))
             {
-                $scope ="openid"
-            } else {
-                $scope = $scope+" openid"
+                $scope = 'openid'
             }
-            $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
+            $scopevalue = get-oauthscopes -Resource $Resource -scope $scope -authflow 'legacy' -IncludeRefreshToken $IncludeRefreshToken
+            $encodescope =  [System.Web.HttpUtility]::UrlEncode($scopevalue)
 
             $url="$aadloginuri/$Tenant/oauth2/authorize?resource=$resource&client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
         } else {
 
                             
-            if([String]::IsNullOrEmpty($scope))        
-            {
-                $scope = $resource.TrimEnd('/')+"/.default"
-            } elseif ($scope -eq 'offline_access') {
-                $scope =  $scope+" "+$resource.TrimEnd('/')+"/.default"
-            } 
-            $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
+            $scopevalue = get-oauthscopes -Resource $Resource -scope $scope -authflow 'code' -IncludeRefreshToken $IncludeRefreshToken
+            $encodescope =  [System.Web.HttpUtility]::UrlEncode($scopevalue)
 
             $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=code&haschrome=1&redirect_uri=$auth_redirect&client-request-id=$request_id&prompt=$prompt&scope=$encodescope"
         }
@@ -1615,7 +1692,7 @@ function Prompt-Credentials
                     grant_type="authorization_code"
                     code=$output["code"]
                     redirect_uri=$RedirectUri
-                    scope = $scope
+                    scope = $scopevalue
                 }
             } else {
                 $body = @{
@@ -1624,7 +1701,7 @@ function Prompt-Credentials
                     grant_type="authorization_code"
                     code=$output["code"]
                     redirect_uri=$RedirectUri
-                    scope = $scope
+                    scope = $scopevalue
                 }
             }
 
@@ -1946,26 +2023,26 @@ function Get-APIKeys
 }
 
 # Gets the AADInt credentials cache
-# Jun 14th 2020
 function Get-Cache
 {
 <#
     .SYNOPSIS
     Dumps AADInternals credentials cache
-
     .DESCRIPTION
     Dumps AADInternals credentials cache
     
     .EXAMPLE
     Get-AADIntCache | Format-Table
-
     Name              ClientId                             Audience                             Tenant                               IsExpired HasRefreshToken
     ----              --------                             --------                             ------                               --------- ---------------
     admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://graph.windows.net            82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
     admin@company.com 1b730954-1685-4b74-9bfd-dac224a7b894 https://management.core.windows.net/ 82205ae4-4c4e-4db5-890c-cb5e5a98d7a3     False            True
 #>
     [cmdletbinding()]
-    Param()
+    Param(
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
     Process
     {
         $cacheKeys = $script:tokens.keys
@@ -1975,33 +2052,42 @@ function Get-Cache
         {
             $accessToken=$script:tokens[$key]
 
-            if([string]::IsNullOrEmpty($accessToken))
-            {
-                Write-Warning "Access token with key ""$key"" not found!"
-                return
-            }
+        
+                if([string]::IsNullOrEmpty($accessToken))
+                {
+                    Write-Warning "Access token with key ""$key"" not found!"
+                    $script:tokens.remove($key)
+                    
+                } else {
+    
+                    $parsedToken = Read-Accesstoken -AccessToken $accessToken
+                    $ClientId = $parsedToken.appid
+                    $cloud = $($key.split("-")[0])
+                    $refreshkey = "$cloud-$ClientId"                    
+    
+                    $attributes = [ordered]@{
+                        "Name" =            $parsedToken.unique_name
+                        "ObjectId" =        $parsedToken.oid
+                        "ClientId" =        $parsedToken.appid
+                        "Audience" =        $parsedToken.aud
+                        "Tenant" =          $parsedToken.tid
+                        "IsExpired" =       Is-AccessTokenExpired -AccessToken $accessToken
+                        "HasRefreshToken" = $script:refresh_tokens.Contains($refreshkey)
+                        "AuthMethods" =     $parsedToken.amr
+                        "Device" =          $parsedToken.deviceid
+                        "cloud" =           $cloud                        
+                    }
+    
+                    New-Object psobject -Property $attributes
+                }
 
-            $parsedToken = Read-Accesstoken -AccessToken $accessToken
-
-            $attributes = [ordered]@{
-                "Name" =            $parsedToken.unique_name
-                "ClientId" =        $parsedToken.appid
-                "Audience" =        $parsedToken.aud
-                "Tenant" =          $parsedToken.tid
-                "IsExpired" =       Is-AccessTokenExpired -AccessToken $accessToken
-                "HasRefreshToken" = $script:refresh_tokens.Contains($key)
-                "AuthMethods" =     $parsedToken.amr
-                "Device" =          $parsedToken.deviceid
-            }
-
-            New-Object psobject -Property $attributes
+            
         }
         
     }
 }
 
 # Clears the AADInt credentials cache
-# Jun 14th 2020
 function Clear-Cache
 {
 <#
@@ -2024,7 +2110,6 @@ function Clear-Cache
 }
 
 # Gets other domains of the given tenant
-# Jun 15th 2020
 function Get-TenantDomains
 {
 <#
@@ -2203,7 +2288,7 @@ function Get-AdminConsent
     {
         if([String]::IsNullOrEmpty($scope))        
         {
-            $scope = "openid profile"
+            $scope = "openid"
         }
         $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
      
@@ -2242,3 +2327,146 @@ function Get-AdminConsent
     }
 }
 
+
+
+# Creates an interactive login form based on given url and auth_redirect.
+function Create-LoginForm
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$Url,
+        [Parameter(Mandatory=$True)]
+        [String]$auth_redirect,
+        [Parameter(Mandatory=$False)]
+        [String]$Headers,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+
+    )
+    Process
+    {
+        # Check does the registry key exists
+        $regPath="HKCU:\Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"
+        if(!(Test-Path -Path $regPath )){
+            Write-Warning "WebBrowser control emulation registry key not found!"
+            $answer = Read-Host -Prompt "Would you like to create the registry key? (Y/N)"
+            if($answer -eq "Y")
+            {
+                New-Item -ItemType directory -Path $regPath -Force
+            }
+        }
+
+        $azureportal = $script:AzureResources[$Cloud]['portal']
+
+        # Check the registry value for WebBrowser control emulation. Should be IE 11
+        $reg=Get-ItemProperty -Path $regPath
+
+        if([String]::IsNullOrEmpty($reg.'powershell.exe') -or [String]::IsNullOrEmpty($reg.'powershell_ise.exe'))
+        {
+            Write-Warning "WebBrowser control emulation not set for PowerShell or PowerShell ISE!"
+            $answer = Read-Host -Prompt "Would you like set the emulation to IE 11? Otherwise the login form may not work! (Y/N)"
+            if($answer -eq "Y")
+            {
+                Set-ItemProperty -Path $regPath -Name "powershell_ise.exe" -Value 0x00002af9
+                Set-ItemProperty -Path $regPath -Name "powershell.exe" -Value 0x00002af9
+                Write-Host "Emulation set. Restart PowerShell/ISE!"
+                return
+            }
+        }
+
+        # Create the form and add a WebBrowser control to it
+ 
+        $form = New-Object Windows.Forms.Form
+        $form.Width = 560
+        $form.Height = 680
+        $form.FormBorderStyle=[System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $form.TopMost = $true
+
+        $web = New-Object Windows.Forms.WebBrowser
+        $web.Size = $form.ClientSize
+        $web.Anchor = "Left,Top,Right,Bottom"
+        $form.Controls.Add($web)
+
+        $field = New-Object Windows.Forms.TextBox
+        $field.Visible = $false
+        $form.Controls.Add($field)
+		$field.Text = $auth_redirect
+
+        # Clear WebBrowser control cache
+        Clear-WebBrowser
+
+         # Add an event listener to track down where the browser is
+         $web.add_Navigated({
+            # If the url matches the redirect url, close with OK.
+            $curl=$_.Url.ToString()
+			$auth_redirect = $form.Controls[1].Text							   
+            Write-Debug "NAVIGATED TO: $($curl)"
+            if($curl.StartsWith($auth_redirect)) {
+
+                # Hack for Azure Portal Login. Jul 11th 2019 
+                # Check whether the body has the Bearer
+                if(![String]::IsNullOrEmpty($form.Controls[0].Document.GetElementsByTagName("script")))
+                {
+                    $script=$form.Controls[0].Document.GetElementsByTagName("script").outerhtml
+                    if($script.Contains('"oAuthToken":')){
+                        $s=$script.IndexOf('"oAuthToken":')+13
+                        $e=$script.IndexOf('}',$s)+1
+                        $oAuthToken=$script.Substring($s,$e-$s) | ConvertFrom-Json
+                        $at=$oAuthToken.authHeader.Split(" ")[1]
+                        $rt=$oAuthToken.refreshToken
+                        $script:AccessToken = @{"access_token"=$at; "refresh_token"=$rt}
+                        Write-Debug "ACCESSTOKEN $script:accessToken"
+                    }
+                    elseif($curl.StartsWith($azureportal))
+                    {
+                        Write-Debug "WAITING FOR THE TOKEN!"
+                        # Do nothing, wait for it..
+                        return
+                    }
+                }
+                
+                # Add the url to the hidden field
+                #$form.Controls[1].Text = $curl
+
+                $form.DialogResult = "OK"
+                $form.Close()
+                Write-Debug "PROMPT CREDENTIALS URL: $curl"
+            } # Automatically logs in -> need to logout first
+            elseif($curl.StartsWith($url)) {
+                # All others
+                Write-Verbose "Returned to the starting url, someone already logged in?"
+            }
+        })
+
+        
+        # Add an event listener to track down where the browser is going
+        $web.add_Navigating({
+            $curl=$_.Url.ToString()
+            Write-Verbose "NAVIGATING TO: $curl"
+            # SharePoint login
+
+         if($curl -eq $auth_redirect)
+           {
+                $_.Cancel=$True
+                $form.DialogResult = "OK"
+                $form.Close()
+           }
+        })
+        
+#        $web.ScriptErrorsSuppressed = $True
+
+        # Set the url
+        if([String]::IsNullOrEmpty($Headers))
+        {
+            $web.Navigate($url)
+        }
+        else
+        {
+            $web.Navigate($url,"",$null,$Headers)
+        }
+
+        # Return
+        return $form
+    }
+}

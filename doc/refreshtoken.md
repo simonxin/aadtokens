@@ -35,3 +35,17 @@ auth code flow, device code flow和 on behalf of flow中都可以申请refresh t
 输出内容中可以看到refresh token直接通过token endpoint得到了新的access token: 
 
 ![](./refreshtoken1.png)
+
+
+# 脚本使用示例三: 查看local cache并取得refresh token
+
+使用-refreshtoken 参数取得保存的refersh token。
+
+	# get cached token information
+	Get-cache
+
+![](./refreshtoken2.png)
+
+	# get specific refresh token from cache with clientID and resource 
+	$Refereshtoken = Get-RefreshTokenFromCache -clientId <clientId>
+	$Refereshtoken

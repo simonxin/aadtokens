@@ -42,6 +42,7 @@ Get-AccessTokenForOneDrive,"Get-AccessTokenForOneDrive
 ",command to request access token for sharepoint.cn
 Get-AccessTokenForOneNote,"Get-AccessTokenForOneNote
 ",command to request access token for onenote (https://api.partner.office365.cn)
+Get-RefreshTokenFromCache,get-accesstokenfromcache -clientId $clientId,"command to get Refresht token from local cache. Optionally, add -cloud if there are tokens in cache from multiple clouds"
 Get-AccessTokenFromCache,get-accesstokenfromcache -clientId $clientId -resource $resource,command to get access token from local cache
 Get-AccessTokenUsingAADGraph,Get-AccessTokenUsingAADGraph -clientId $clientId -resource $resource,command to to get access token by using a new refresh token for AAD graph (https://graph.chinacloudapi.cn)
 Get-AccessTokenwithobo,Get-AccessTokenwithobo  -Credentials $credential -token $clienttoken -Tenant $Tenant -scope $scope -verbose,command to get access token through on behalf of flow

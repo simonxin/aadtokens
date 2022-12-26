@@ -9,6 +9,8 @@ function Call-MSPIMAPI
     Param(
         [Parameter(Mandatory=$false)]
         [String]$AccessToken,
+        [Parameter(Mandatory=$false)]
+        [String]$clientId,
         [Parameter(Mandatory=$true)]
         [String]$API,
         [Parameter(Mandatory=$False)]
@@ -34,28 +36,30 @@ function Call-MSPIMAPI
         # set msgraph api
 
         $mspimapi = $script:AzureResources[$Cloud]["ms-pim"].trimend("/") 
-        $clientId = $script:AzureKnwonClients["graph_api"]
 
+        if ([string]::IsNullOrEmpty($clientId)) {
+            $clientId = $script:AzureKnwonClients["graph_api"]
+        }
 
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            try {
-                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $mspimapi 
-            }
-            catch {
-                write-verbose "no valid MS PIM access token detected in cache. try to request a new access token"
-                Get-AccessTokenForPIM -SaveToCache
-                $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $mspimapi 
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            
+            if ([string]::IsNullOrEmpty($AccessToken)) {
+            
+                write-verbose "no valid PIM access token detected in cache. try to request a new access token"
+                $accesstoken = get-accesstokenformsgraph -SaveToCache
+               # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
             }
             
-        } else {
+        } 
 
-            # Check if the giving token is expired or not
-            if(Is-AccessTokenExpired($AccessToken))
+        # Check if the giving token is expired or not existing
+        if($(Is-AccessTokenExpired($AccessToken)) -or [string]::IsNullOrEmpty($AccessToken))
             {
-                write-verbose "AccessToken has expired"
+                write-verbose "AccessToken has expired or not valid"
                 throw "AccessToken has expired or no invalid token exists"
             }
-        }
+                
 
 
         # Set the required variables

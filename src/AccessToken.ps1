@@ -1,7 +1,8 @@
 ﻿# This contains functions for getting Azure AD access tokens
 
 # Tries to get access token from cache unless provided as parameter
-# Refactored Jun 8th 2020
+# load accesstoken from cache
+# if add user name, will do request new access token based on user name gived
 function Get-AccessTokenFromCache
 {
     [cmdletbinding()]
@@ -11,9 +12,11 @@ function Get-AccessTokenFromCache
         [Parameter(Mandatory=$True)]
         [String]$ClientID,
         [Parameter(Mandatory=$True)]
-        [String]$Resource,
-        [switch]$IncludeRefreshToken,
-        [boolean]$Force=$false,
+        [String]$Resource,  
+        [Parameter(Mandatory=$false)]   # on behalf of user UPN. Will do request access token from any existing refreshtoken if matches with this value
+        [String]$username,
+        [Parameter(Mandatory=$false)]
+        [bool]$IncludeRefreshToken=$False,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -22,58 +25,152 @@ function Get-AccessTokenFromCache
         # Check if we got the AccessToken as parameter
 
         $resource = $Resource.TrimEnd('/')
-        if([string]::IsNullOrEmpty($AccessToken))
-        {
-            # Check if cache entry is empty
-            if([string]::IsNullOrEmpty($Script:tokens["$ClientId-$Resource"]))
+
+        
+
+            if([string]::IsNullOrEmpty($AccessToken))
             {
-                # Empty, so throw the exception
-                Throw "No saved tokens found. Please call Get-AADIntAccessTokenFor<service> -SaveToCache"
+                # Check if cache entry is empty
+                if([string]::IsNullOrEmpty($Script:tokens["$cloud-$ClientId-$Resource"]))
+                {
+                    # Empty, so throw the exception
+                    write-verbose "No saved tokens for client: $clientId and resource: $resourceId"
+
+                    # try to get accesstoken based on refresh token                
+                    if ([string]::IsNullOrEmpty($username)) {
+                        # it is malformed to get accesstoken using different clientId
+                        $alltokensincache = Get-Cache | where {$_.cloud -eq $cloud -and  $_.clientid -eq  $clientId -and $_.HasRefreshToken -and ![string]::IsNullOrEmpty($_.Name)} 
+
+                        if ($($alltokensincache | Measure-Object).count -gt 0){
+                            # Use first cached refreshtoken which matches the on behalf of user
+
+                            write-verbose "try to request access token on behalf of: $($alltokensincache[0].Name) with client: $clientid"
+                            $Audience = $alltokensincache[0].Audience
+                            $tenantId = $alltokensincache[0].Tenant
+                            $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]
+                           
+                        } else {
+                            write-verbose "no available delegation token found in cache"
+                            return $NULL
+                        }
+
+
+                    } else {
+                            write-verbose "try to load token on behalf of: $username"
+                            $alltokensincache = Get-Cache | where {$_.Name -eq $username -and $_.clientid -eq  $clientId -and $_.HasRefreshToken} 
+
+                            if ($($alltokensincache | Measure-Object).count -gt 0){
+                                # Use first cached refreshtoken which matches the on behalf of user
+                                write-verbose "try to request access token on behalf of: $($alltokensincache[0].Name) with client app $clientid"
+        
+                                $Audience = $alltokensincache[0].Audience
+                                $tenantId = $alltokensincache[0].Tenant
+                                $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]
+   
+         
+                                
+                            } else {
+                                write-verbose "Not able to request new access token on behalf of: $username"
+                                return $NULL
+                            }
+
+                    }
+
+                    $tokens = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientID  -RefreshToken $RefreshToken -TenantId $tenantId -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
+                
+                    if ($IncludeRefreshToken) {
+                        $retVal=$tokens[0]
+                        $refreshtoken =$tokens[1]
+
+                    } else {
+                        $retVal=$tokens
+                    }
+
+                }
+                else
+                {
+                    $retVal=$Script:tokens["$cloud-$ClientId-$Resource"]
+                    $refreshtoken = $script:refresh_tokens["$cloud-$ClientId"]
+                    
+                }
             }
             else
             {
-                $retVal=$Script:tokens["$ClientId-$Resource"]
-            }
-        }
-        else
-        {
-            # Check that the audience of the access token is correct
-            $audience=(Read-Accesstoken -AccessToken $AccessToken).aud
+                # Check that the audience of the access token is correct
+                $tokenvalues =Read-Accesstoken -AccessToken $AccessToken
+                $audience=$tokenvalues.aud
 
-            # Strip the trailing slashes
-            if($audience.EndsWith("/"))
-            {
-                $audience = $audience.Substring(0,$audience.Length-1)
-            }
-            if($Resource.EndsWith("/"))
-            {
-                $Resource = $Resource.Substring(0,$Resource.Length-1)
+                # Strip the trailing slashes
+                if($audience.EndsWith("/"))
+                {
+                    $audience = $audience.Substring(0,$audience.Length-1)
+                }
+                if($Resource.EndsWith("/"))
+                {
+                    $Resource = $Resource.Substring(0,$Resource.Length-1)
+                }
+
+                if(($audience -ne $Resource))
+                {
+                    # Wrong audience
+                    Write-Verbose "detected the giving ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
+                    Write-Verbose "Will try to load refreshtoken from cache ."
+                    $retVal = Get-AccessTokenfromcache -cloud $Cloud -Resource $Resource -ClientId $ClientID 
+                    $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]                    
+                    # throw "The audience of the access token ($audience) is wrong. Should be $resource!"
+
+                }
+                else
+                {
+                    # Just return the passed access token
+                    $retVal=$AccessToken
+                    $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]
+                }
             }
 
-            if(($audience -ne $Resource) -and ($Force -eq $False))
+            # Check the expiration
+            if(Is-AccessTokenExpired($retVal))
             {
-                # Wrong audience
-                Write-Verbose "ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
-                Throw "The audience of the access token ($audience) is wrong. Should be $resource!"
+                if (![string]::IsNullOrEmpty($RefreshToken)) {
+                    Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
+                    $tokenvalues =Read-Accesstoken -AccessToken $retVal
+                    $retVal = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientID -RefreshToken $RefreshToken -TenantId $($tokenvalues.tid) -scope $($tokenvalues.scp)  -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
+                
+                } else {
+                    Write-Verbose "ACCESS TOKEN EXPRIRED and NO refersh token existing. Cannot get a cached token"
+                    return $null
+                }
+            
             }
-            else
-            {
-                # Just return the passed access token
-                $retVal=$AccessToken
-            }
-        }
-
-        # Check the expiration
-        if(Is-AccessTokenExpired($retVal))
-        {
-            Write-Verbose "ACCESS TOKEN HAS EXPRIRED. Trying to get a new one with RefreshToken."
-            $retVal = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientID -RefreshToken $script:refresh_tokens["$ClientId-$Resource"] -TenantId (Read-Accesstoken -AccessToken $retVal).tid -scope (Read-Accesstoken -AccessToken $retVal).scp -SaveToCache $true -IncludeRefreshToken $IncludeRefreshToken
-        }
-
-        # Return
+        
         return $retVal
+
+      
     }
 }
+
+# get refresh token from cache
+function Get-RefreshTokenFromCache
+{
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [String]$ClientID,
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+        # Check if we got the AccessToken as parameter
+
+        $resource = $Resource.TrimEnd('/')
+        write-verbose "get refresh token only"
+        $refreshtoken = $script:refresh_tokens["$cloud-$clientId"]
+        return $refreshtoken
+    }
+    
+}
+
 
 # Gets the access token for AAD Graph API
 function Get-AccessTokenForAADGraph
@@ -1575,7 +1672,7 @@ function Get-AccessTokenForAADIAMAPI
         }
 
 
-        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $aadiamapi -ClientId $clientId -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid -scope (Read-Accesstoken $AccessTokens[0]).scp
+        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $aadiamapi -ClientId $clientId -SaveToCache $SaveToCache -RefreshToken $AccessTokens[1] -TenantId (Read-Accesstoken $AccessTokens[0]).tid
 
         if(!$SaveToCache)
         {
@@ -1650,7 +1747,6 @@ function Get-AccessTokenForMSCommerce
 }
 
 # Gets an access token for MS Partner
-# Sep 22nd 2021
 function Get-AccessTokenForMSPartner
 {
 <#
@@ -2014,12 +2110,12 @@ function Get-Idtoken
                 $RedirectUri="ms-aadj-redir://auth/drs"
         }
 
-        # add scope
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = "openid profile"
+        # add openid scope
+        if ([string]::IsNullOrEmpty($scope)) {
+            $scope = 'openid'
         } else {
-            $scope = "openid profile $scope"
+            $scope = "openid $scope"
+
         }
         $encodescope =  [System.Web.HttpUtility]::UrlEncode($scope)
 
@@ -2032,8 +2128,6 @@ function Get-Idtoken
         # Create the url
         $url="$aadloginuri/$Tenant/oauth2/v2.0/authorize?client_id=$client_id&response_type=$tokentype&redirect_uri=$auth_redirect&scope=$encodescope&reponse_mode=$response_mode&prompt=login&state=$state&nonce=$none"
        
-
-       
         if($ForceMFA)
         {
             $url+="&amr_values=mfa"
@@ -2042,7 +2136,8 @@ function Get-Idtoken
         write-verbose "oauth Url: $url"
  
 
-        # Create the form and get output     
+        # Create the form and get output    
+        
         $form = Create-LoginForm -Url $url -auth_redirect $RedirectUri
 
         
@@ -2085,6 +2180,7 @@ function Get-Idtoken
             if ($queryOutput["id_token"] ) {
 
                 Write-Verbose "id_token detected from response: "
+                Write-Verbose $queryOutput["id_token"]
                 $tokens += $queryOutput["id_token"]
 
             }
@@ -2092,6 +2188,7 @@ function Get-Idtoken
             if ($queryOutput["access_token"] ) {
 
                 Write-Verbose "access_token detected from response"
+                Write-Verbose $queryOutput["access_token"]
                 $tokens += $queryOutput["access_token"]
 
             }
@@ -2161,18 +2258,23 @@ function Get-AccessToken
         $devicemanagementsvc = $script:AzureResources[$Cloud]['devicemanagementsvc']
         # fullfil redirect Uri if not provided to generate access token
 
-         # add offline access scope 
-         if ($SaveToCache -or $IncludeRefreshToken)  {
-                if ([string]::IsNullOrEmpty($scope)) {
-                     $scope = "offline_access"
-                 } else {
-                     $scope = $scope +" offline_access"
-                 }
-         }        
-        
         if([string]::IsNullOrEmpty($RedirectUri))
         {
             $RedirectUri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+        }
+
+        # save to cache if needed, set to use refresh token 
+        if( $SaveToCache -or $IncludeRefreshToken) {
+            $needrefreshtoken = $true
+        } else {
+            $needrefreshtoken = $false
+        }
+
+ 
+
+        if([string]::IsNullOrEmpty($Resource))
+        {
+            $Resource = $script:AzureResources[$Cloud]['ms_graph_api']
         }
 
 
@@ -2195,7 +2297,7 @@ function Get-AccessToken
         elseif($UseDeviceCode) # Check if we want to use device code flow
         {
             # Get token using device code
-            $OAuthInfo = Get-AccessTokenUsingDeviceCode -cloud $Cloud -Resource $Resource -ClientId $ClientId -Tenant $Tenant
+            $OAuthInfo = Get-AccessTokenUsingDeviceCode -cloud $Cloud -Resource $Resource -ClientId $ClientId -Tenant $Tenant -scope $scope -IncludeRefreshToken $needrefreshtoken
             $access_token = $OAuthInfo.access_token
         }
         elseif(![String]::IsNullOrEmpty($BPRT)) # Check if we got a BPRT
@@ -2210,14 +2312,11 @@ function Get-AccessToken
         else
         {
 
-            
-
-
             # Check if we got credentials
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
            
-                $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt
+                $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt -IncludeRefreshToken $needrefreshtoken
                 
             }
             else
@@ -2232,7 +2331,8 @@ function Get-AccessToken
 
                   # call get oauth if the request contains a user name/password credential
                    if ($Credentials.username -like "*@*") {
-                       $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -tenant $tenant -clientSecret $clientSecret -scope $scope
+
+                       $OAuthInfo = Get-OAuthInfo -Credentials $Credentials -ClientId $ClientId -tenant $tenant -clientSecret $clientSecret -resource $Resource -scope $scope -IncludeRefreshToken $needrefreshtoken
                     # call client crentail auth flow
                     } else {
                         $client_token= Get-AccessTokenwithclientcredentail -Credentials $Credentials -Resource $Resource -Tenant $tenant
@@ -2288,29 +2388,25 @@ function Get-AccessToken
         if([string]::IsNullOrEmpty($access_token))
         {
             Throw "Could not get Access Token!"
-        }
-
-        # Don't print out token if saved to cache!
-        if($SaveToCache)
+        } elseif  ($SaveToCache)    # Don't print out token if saved to cache!
         {
-            $pat = Read-Accesstoken -AccessToken $access_token
-            $attributes=[ordered]@{
-                "Tenant" =   $pat.tid
-                "User" =     $pat.unique_name
-                "Resource" = $Resource
-                "Client" =   $ClientID
+            $tokenitem =  read-accesstoken $access_token
+            if (![string]::IsNullOrEmpty($tokenitem.amr)) {
+                Write-Verbose "AccessToken saved to cache."
+                $script:tokens["$cloud-$ClientId-$($Resource.trimend('/'))"] =          $access_token
+                
+                if(![string]::IsNullOrEmpty($refresh_token)) {
+                    Write-Verbose "Refreshtoken saved to cache."
+                    $script:refresh_tokens["$cloud-$ClientId"] =  $refresh_token
+                }
+            } else {
+                Write-verbose "skip save token in cache as no auth method detected with access token (like client credential flow)"
             }
-            Write-Host "AccessToken saved to cache."
-
-
-            $script:tokens["$ClientId-$($Resource.trimend('/'))"] =          $access_token
-            $script:refresh_tokens["$ClientId-$($Resource.trimend('/'))"] =  $refresh_token
-
-            return $null
+           
         }
-        else
-        {
-            if($IncludeRefreshToken) # Include refreshtoken
+        
+        # return token 
+        if($IncludeRefreshToken) # Include refreshtoken
             {
                 return @($access_token,$refresh_token)
             }
@@ -2318,7 +2414,7 @@ function Get-AccessToken
             {
                 return $access_token
             }
-        }
+        
     }
 }
 
@@ -2338,7 +2434,7 @@ function Get-AccessTokenWithRefreshToken
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache = $false,
         [Parameter(Mandatory=$False)]
-        [string]$scope,
+        [string]$scope='.default',
         [Parameter(Mandatory=$False)]
         [bool]$IncludeRefreshToken = $true,
         [Parameter(Mandatory=$false)]
@@ -2348,14 +2444,14 @@ function Get-AccessTokenWithRefreshToken
     {
 
         # default scope
-        $scope = "offline_access " + $Resource.TrimEnd('/')+"/.default"
-
+        $scopevalue = get-oauthscopes -resource $resource -authflow 'code' -scope $scope -IncludeRefreshToken $IncludeRefreshToken
+        
         # Set the body for API call
         $body = @{
             "client_id"=     $ClientId
             "grant_type"=    "refresh_token"
             "refresh_token"= $RefreshToken
-            "scope"=         "$scope"
+            "scope"=         "$scopevalue"
         }
 
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
@@ -2381,7 +2477,7 @@ function Get-AccessTokenWithRefreshToken
             $response=Invoke-RestMethod -UseBasicParsing -Uri $url -ContentType $contentType -Method POST -Body $body            
         }
         catch {
-            write-verbose $error[0]
+            write-verbose $_.Exception
             return $NULL
         }
  
@@ -2390,11 +2486,16 @@ function Get-AccessTokenWithRefreshToken
         Write-verbose "ACCESS TOKEN RESPONSE: $response"
 
         # Save the tokens to cache
-        if($SaveToCache)
+        if($SaveToCache -and ![string]::IsNullOrEmpty($response.access_token))
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+            $Script:tokens["$cloud-$ClientId-$Resource"] =         $response.access_token
+
+            if(![string]::IsNullOrEmpty($response.refresh_token)) {
+                $Script:refresh_tokens["$cloud-$ClientId"] = $response.refresh_token
+            }
+
+            
         }
 
         # Return
@@ -2421,6 +2522,10 @@ function Get-AccessTokenUsingDeviceCode
         [String]$resource,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [String]$scope='.default',
+        [Parameter(Mandatory=$False)]
+        [bool]$IncludeRefreshToken,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -2439,16 +2544,15 @@ function Get-AccessTokenUsingDeviceCode
             $Tenant="Common"
         }
 
+        $scopevalue = get-oauthscopes -resource $resource -scope $scope -authflow 'device_code' -IncludeRefreshToken $IncludeRefreshToken
         # Create a body for the first request
         $body=@{
             "client_id" = $ClientId
-            "resource" =  $Resource
+            "scope" =  $scopevalue
         }
 
         # Invoke the request to get device and user codes
         $authResponse = Invoke-RestMethod -UseBasicParsing -Method Post -Uri "$aadlogin/$tenant/oauth2/devicecode?api-version=1.0" -Body $body
-
-        Write-Host $authResponse.message
 
         $continue = $true
         $interval = $authResponse.interval
@@ -2490,7 +2594,7 @@ function Get-AccessTokenUsingDeviceCode
                 $details=$_.ErrorDetails.Message | ConvertFrom-Json
                 $continue = $details.error -eq "authorization_pending"
                 Write-Verbose $details.error
-                Write-Host "." -NoNewline
+                Write-Error"." -NoNewline
 
                 if(!$continue)
                 {
@@ -2540,14 +2644,14 @@ function Get-AccessTokenwithclientcredentail
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
 
         # define a scope with default of request resource
-        $scope = $resource.trimend('/')+"/.default"
+        $scopevalue = get-oauthscopes -resource $resource -scope '.default' -authflow 'client_credentials'
         
         # Create a body for the first request
         $body=@{
             "client_id" = $credentials.GetNetworkCredential().username
             "grant_type" = "client_credentials"
             “client_secret" = $credentials.GetNetworkCredential().password
-            "scope"=  $scope
+            "scope"=  $scopevalue
         }
 
         Write-Verbose "ACCESS TOKEN BODY: $($body | Out-String)"
@@ -2578,8 +2682,13 @@ function Get-AccessTokenwithobo
         [Parameter(Mandatory=$true)]
         [String]$Tenant,        
         [Parameter(Mandatory=$true)]
-        [String]$token,        
+        [String]$token,   
+        [Parameter(Mandatory=$true)]
         [String]$scope, 
+        [Parameter(Mandatory=$false)]
+        [String]$resource, 
+        [Parameter(Mandatory=$false)]
+        [bool]$IncludeRefreshToken=$true, 
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -2592,11 +2701,7 @@ function Get-AccessTokenwithobo
         }
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
 
-
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = "openid profile"
-        } 
+        $scopevalue = get-oauthscopes -resource $resource -scope $scope -authflow 'obo' -IncludeRefreshToken $IncludeRefreshToken
         
         # Create a body for the first request
         $body=@{
@@ -2604,7 +2709,7 @@ function Get-AccessTokenwithobo
             "grant_type" = "urn:ietf:params:oauth:grant-type:jwt-bearer"
             “client_secret" = $credentials.GetNetworkCredential().password
             "assertion" = $token
-            "scope"=  $scope
+            "scope"=  $scopevalue
             "requested_token_use"="on_behalf_of"
         }
 
@@ -2630,6 +2735,7 @@ function Get-AccessTokenWithAuthorizationCode
 {
     [cmdletbinding()]
     Param(
+        [Parameter(Mandatory=$True)]
         [String]$Resource,
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
@@ -2644,7 +2750,7 @@ function Get-AccessTokenWithAuthorizationCode
         [Parameter(Mandatory=$False)]
         [String]$RedirectUri,
         [Parameter(Mandatory=$False)]
-        [String]$scope,
+        [String]$scope='.default',
         [Parameter(Mandatory=$False)]
         [String]$CodeVerifier,
         [Parameter(Mandatory=$false)]
@@ -2654,10 +2760,7 @@ function Get-AccessTokenWithAuthorizationCode
     {
 
         # default scope
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = $resource.trimend('/')+"/.default"
-        }     
+        $scopevalue = get-oauthscopes -scope $scope -resource $Resource -authflow 'code' -IncludeRefreshToken $IncludeRefreshToken
         
         $aadlogin = $script:AzureResources[$Cloud]['aad_login']
         $aadlogincommon = $script:AzureResources[$Cloud]['aad_login_common']
@@ -2667,11 +2770,10 @@ function Get-AccessTokenWithAuthorizationCode
 
         # Set the body for API call
         $body = @{
-            "resource"=      $Resource
             "client_id"=     $ClientId
             "grant_type"=    "authorization_code"
             "code"=          $AuthorizationCode
-            "scope"=         "$scope"
+            "scope"=         "$scopevalue"
         }
         if(![string]::IsNullOrEmpty($RedirectUri))
         {
@@ -2708,8 +2810,8 @@ function Get-AccessTokenWithAuthorizationCode
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+            $Script:tokens["$cloud-$ClientId-$Resource"] =         $response.access_token
+            $Script:refresh_tokens["$cloud-$ClientId"] = $response.refresh_token
         }
 
         # Return
@@ -2727,18 +2829,17 @@ function Get-AccessTokenWithDeviceSAML
         [Parameter(Mandatory=$False)]
         [bool]$SaveToCache,
         [Parameter(Mandatory=$False)]
-        [String]$scope,
+        [String]$scope='.default',
         [Parameter(Mandatory=$false)]
-        [String]$Cloud=$script:DefaultAzureCloud
+        [String]$Cloud=$script:DefaultAzureCloud,
+        [Parameter(Mandatory=$false)]
+        [String]$IncludeRefreshToken=$false
     )
     Process
     {
 
         # default scope
-        if([String]::IsNullOrEmpty($scope))        
-        {
-            $scope = "openid profile"
-        }    
+        $scopevalue = get-oauthscopes -resource $resource -scope $scope -authflow 'code' -IncludeRefreshToken $IncludeRefreshToken
 
         $devicemanagementsvc = $script:AzureResources[$Cloud]['devicemanagementsvc']
         $resource = "urn:ms-drs:$devicemanagementsvc"
@@ -2756,7 +2857,7 @@ function Get-AccessTokenWithDeviceSAML
             "client_id"=     $ClientId
             "grant_type"=    "urn:ietf:params:oauth:grant-type:saml1_1-bearer"
             "assertion"=     Convert-TextToB64 -Text $SAML
-            "scope"=         "$scope"
+            "scope"=         "$scopevalue"
         }
         
         # Debug
@@ -2773,8 +2874,8 @@ function Get-AccessTokenWithDeviceSAML
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$ClientId-$Resource"] = $response.refresh_token
+            $Script:tokens["$cloud-$ClientId-$Resource"] =         $response.access_token
+            $Script:refresh_tokens["$cloud-$ClientId"] = $response.refresh_token
         }
         else
         {
@@ -2871,7 +2972,7 @@ function Get-AccessTokenUsingAADGraph
         }
 
         # Create a new AccessToken for Azure AD management portal API
-        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientId -TenantId $tenant -RefreshToken $refresh_token -scope $scope -SaveToCache $SaveToCache
+        $AccessToken = Get-AccessTokenWithRefreshToken -cloud $Cloud -Resource $Resource -ClientId $ClientId -TenantId $tenant -RefreshToken $refresh_token -SaveToCache $SaveToCache
 
         # Return
         $AccessToken

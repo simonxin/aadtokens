@@ -67,7 +67,7 @@ FunctionsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-c
 "Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureManagement",
 "Get-AccessTokenForEXO","Get-AccessTokenForEXOPS","Get-AccessTokenForIntuneMDM","Get-AccessTokenForMip","Get-AccessTokenForMSGraph","Get-AccessTokenForOfficeApps",
 "Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo","Get-AADknownclient","Get-AdminConsent",
-"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken",
+"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken","Get-RefreshTokenFromCache",
 "call-AzureManagementAPI","Call-AzureAADIAMAPI","Get-AADConditionalPolicies","Is-ExternalUserUnique","Get-AzureRBACroles","Get-TenantAuthenticationMethods","Get-TenantApplications","Get-AADConnectStatus",
 "Call-MSGraphAPI","Get-AzureSignInLog","Get-AzureAuditLog","Get-MSGraphUser","Get-MSGraphUserAppRoleAssignments","Get-MSGraphUserOwnedDevices","Get-MSGraphUserRegisteredDevices",
 "Get-MSGraphUserLicenseDetails","Get-MSGraphUserMemberOf","Get-MSGraphUserDirectReports","Get-MSGraphGroupOwners","Get-MSGraphGroupMembers","Get-MSGraphRoles","Get-MSGraphRoleMembers",
@@ -81,7 +81,7 @@ CmdletsToExport = @('get-defaultcloud','set-defaultcloud','Get-cache',"clear-cac
 "Get-AccessToken","Read-AccessToken","Get-AccessTokenForAADGraph","Get-AccessTokenForAADIAMAPI","Get-AccessTokenForAADJoin","Get-AccessTokenForAzureCoreManagement","Get-AccessTokenForAzureManagement",
 "Get-AccessTokenForEXO","Get-AccessTokenForEXOPS","Get-AccessTokenForIntuneMDM","Get-AccessTokenForMip","Get-AccessTokenForMSGraph","Get-AccessTokenForOfficeApps",
 "Get-AccessTokenForOneDrive","Get-AccessTokenForOneNote","get-idtoken","Get-UserInfo","Get-AADknownclient","Get-AdminConsent",
-"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken",
+"Get-AccessTokenFromCache","Get-AccessTokenUsingAADGraph","Get-AccessTokenwithobo","Get-AccessTokenWithRefreshToken","Get-RefreshTokenFromCache",
 "call-AzureManagementAPI","Call-AzureAADIAMAPI","Get-AADConditionalPolicies","Is-ExternalUserUnique","Get-AzureRBACroles","Get-TenantAuthenticationMethods","Get-TenantApplications","Get-AADConnectStatus"
 "Call-MSGraphAPI","Get-AzureSignInLog","Get-AzureAuditLog","Get-MSGraphUser","Get-MSGraphUserAppRoleAssignments","Get-MSGraphUserOwnedDevices","Get-MSGraphUserRegisteredDevices",
 "Get-MSGraphUserLicenseDetails","Get-MSGraphUserMemberOf","Get-MSGraphUserDirectReports","Get-MSGraphGroupOwners","Get-MSGraphGroupMembers","Get-MSGraphRoles","Get-MSGraphRoleMembers",
