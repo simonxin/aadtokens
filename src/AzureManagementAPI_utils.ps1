@@ -30,12 +30,12 @@ function Call-AzureAADIAMAPI
 
         
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $aadiamapi -cloud $cloud 
             
             if ([string]::IsNullOrEmpty($AccessToken)) {
             
                 write-verbose "no valid AAD IAM access token detected in cache. try to request a new access token"
-                $accesstoken = get-accesstokenformsgraph -SaveToCache
+                $accesstoken = Get-AccessTokenForAADIAMAPI -SaveToCache  -cloud $cloud 
                # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
             }
             
@@ -128,6 +128,10 @@ function Call-AzureManagementAPI
         $AccessToken,
         [Parameter(Mandatory=$false)]
         $clientId,
+        [Parameter(Mandatory=$false)]
+        [String]$redirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$tenant,
         [Parameter(ParameterSetName='Command',Mandatory=$True)]
         [string]$Command,
         [Parameter(ParameterSetName='resourceId',Mandatory=$true)]
@@ -156,13 +160,13 @@ function Call-AzureManagementAPI
    
 
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $azuremanagement  -cloud $cloud 
             
             if ([string]::IsNullOrEmpty($AccessToken)) {
             
                 write-verbose "no valid Azure Management access token detected in cache. try to request a new access token"
-                $accesstoken = get-accesstokenformsgraph -SaveToCache
-               # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
+                $accesstoken = Get-AccessTokenForAzureManagement -SaveToCache  -cloud $cloud -Tenant $tenant -RedirectUri $RedirectUri -clientid $clientId
+
             }
             
         } 

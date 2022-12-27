@@ -12,6 +12,10 @@ function Call-MSGraphAPI
         [Parameter(Mandatory=$false)]
         [String]$clientId,
         [Parameter(Mandatory=$false)]
+        [String]$redirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$tenant,
+        [Parameter(Mandatory=$false)]
         [String]$API,
         [Parameter(Mandatory=$False)]
         [ValidateSet('beta','v1.0')]
@@ -43,12 +47,12 @@ function Call-MSGraphAPI
 
 
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi -cloud $cloud
             
             if ([string]::IsNullOrEmpty($AccessToken)) {
             
                 write-verbose "no valid MS Graph access token detected in cache. try to request a new access token"
-                $accesstoken = get-accesstokenformsgraph -SaveToCache
+                $accesstoken = get-accesstokenformsgraph -SaveToCache -cloud $Cloud -Tenant $tenant -RedirectUri $RedirectUri -clientid $clientId
                # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
             }
             

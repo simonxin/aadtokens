@@ -11,6 +11,10 @@ function Call-MSPIMAPI
         [String]$AccessToken,
         [Parameter(Mandatory=$false)]
         [String]$clientId,
+        [Parameter(Mandatory=$false)]
+        [String]$redirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$tenant,
         [Parameter(Mandatory=$true)]
         [String]$API,
         [Parameter(Mandatory=$False)]
@@ -42,13 +46,13 @@ function Call-MSPIMAPI
         }
 
         if ([string]::IsNullOrEmpty($AccessToken)) {
-            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi 
+            $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $mspimapi  -cloud $cloud 
             
             if ([string]::IsNullOrEmpty($AccessToken)) {
             
                 write-verbose "no valid PIM access token detected in cache. try to request a new access token"
-                $accesstoken = get-accesstokenformsgraph -SaveToCache
-               # $accesstoken = get-accesstokenfromcache  -ClientID $clientId  -resource $msgraphapi
+                $accesstoken =  Get-AccessTokenForPIM -SaveToCache  -cloud $cloud -Tenant $tenant -RedirectUri $RedirectUri -clientid $clientId
+               
             }
             
         } 

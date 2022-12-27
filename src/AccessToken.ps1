@@ -227,8 +227,10 @@ function Get-AccessTokenForAADGraph
         [switch]$UseDeviceCode,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
-        [Parameter(Mandatory=$False)]
+        [Parameter(Mandatory=$false)]
         [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [switch]$SaveToCache,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
@@ -236,8 +238,9 @@ function Get-AccessTokenForAADGraph
     Process
     {
         $resource = $script:AzureResources[$Cloud]['aad_graph_api'] # get AAD graph resource based on cloud
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is MS Graph API
-
+        if ([string]::IsNullOrEmpty($clientid)) {        
+            $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is MS Graph API
+        }
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -RedirectUri $RedirectUri -Resource $Resource -ClientId $clientId -SAMLToken $SAMLToken -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -281,6 +284,10 @@ function Get-AccessTokenForMSGraph
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='PRT',Mandatory=$True)]
         [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
@@ -292,7 +299,6 @@ function Get-AccessTokenForMSGraph
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -300,8 +306,9 @@ function Get-AccessTokenForMSGraph
     {
 
         $resource = $script:AzureResources[$Cloud]["ms_graph_api"] # get MS graph resource based on cloud
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is MS Graph API
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is MS Graph API
+        }
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -355,10 +362,13 @@ function Get-AccessTokenForPTA
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -366,8 +376,9 @@ function Get-AccessTokenForPTA
     {
 
         $resource = $script:AzureResources[$Cloud]["cloudwebappproxy"] # get PTA resource based on cloud
-        $clientId = $script:AzureKnwonClients["aadsync"] # set client Id = "cb1056e2-e479-49de-ae31-7812af012ed8" which is aad sync app
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["aadsync"] # set client Id = "cb1056e2-e479-49de-ae31-7812af012ed8" which is aad sync app
+        }
 
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $resource -RedirectUri $RedirectUri  -ClientId $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
@@ -375,7 +386,7 @@ function Get-AccessTokenForPTA
 
 
 
-# Gets the access token for enabling or disabling PTA
+# Gets the access token for PIM
 function Get-AccessTokenForPIM
 {
 <#
@@ -396,10 +407,13 @@ function Get-AccessTokenForPIM
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -407,7 +421,9 @@ function Get-AccessTokenForPIM
     {
 
         $resource = $script:AzureResources[$Cloud]["ms-pim"] # get MS-pim resource
-        $clientId = $script:AzureKnwonClients["graph_api"] 
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] 
+        }
 
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $resource -RedirectUri $RedirectUri  -ClientId $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
@@ -463,10 +479,13 @@ function Get-AccessTokenForOfficeApps
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -474,8 +493,9 @@ function Get-AccessTokenForOfficeApps
     {
 
         $resource = $script:AzureResources[$Cloud]["officeapps"] # get office apps resource based on cloud
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is MS Graph API
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is MS Graph API
+        }
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource  $resource -RedirectUri $RedirectUri -ClientId  $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
@@ -529,10 +549,13 @@ function Get-AccessTokenForEXO
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -540,7 +563,9 @@ function Get-AccessTokenForEXO
     {
 
         $resource = $script:AzureResources[$Cloud]["outlook"] # get outlook online apps resource based on cloud
-        $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c" which is office API client app
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c" which is office API client app
+        }
 
         # Office app has the required rights to Exchange Online
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $Resource -RedirectUri $RedirectUri -ClientId $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
@@ -597,10 +622,15 @@ function Get-AccessTokenForEXOPS
         [String]$KerberosTicket,
         [Parameter(ParameterSetName='Kerberos',Mandatory=$True)]
         [String]$Domain,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -608,7 +638,9 @@ function Get-AccessTokenForEXOPS
     {
 
         $resource = $script:AzureResources[$Cloud]["outlook"] # get outlook online apps resource based on cloud
-        $clientId = $script:AzureKnwonClients["exo"] # set client Id = "a0c73c16-a7e3-4564-9a95-2bdf47383716" which is EXO Remote PowerShell
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["exo"] # set client Id = "a0c73c16-a7e3-4564-9a95-2bdf47383716" which is EXO Remote PowerShell
+        }
 
         # Office app has the required rights to Exchange Online
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -SAMLToken $SAMLToken -KerberosTicket $KerberosTicket -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -Domain $Domain
@@ -653,17 +685,22 @@ function Get-AccessTokenForSARA
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
         $resource = $script:AzureResources[$Cloud]["sara"] # get outlook online apps resource based on cloud
-        $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c" which is sara app
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c" which is sara app
+        }
         # Office app has the required rights to Exchange Online
         Get-AccessToken -cloud $Cloud -Credentials $Credentials -Tenant $Tenant -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
@@ -707,8 +744,6 @@ function Get-AccessTokenForOneDrive
 #>
     [cmdletbinding()]
     Param(
-    [Parameter(Mandatory=$True)]
-        [String]$Tenant,
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
         [Parameter(ParameterSetName='PRT',Mandatory=$True)]
@@ -721,6 +756,10 @@ function Get-AccessTokenForOneDrive
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
@@ -730,8 +769,9 @@ function Get-AccessTokenForOneDrive
     Process
     {        
         $resource = $script:AzureResources[$Cloud]['suffixes']["sharepoint"] # get sharepoint apps resource based on cloud
-        $clientId = $script:AzureKnwonClients["onedrive"] # set client Id = "ab9b8c07-8f02-4f72-87fa-80105867a763" which is one drive client app
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["onedrive"] # set client Id = "ab9b8c07-8f02-4f72-87fa-80105867a763" which is one drive client app
+        }
         Get-AccessToken -cloud $Cloud -Tenant $Tenant -Resource "https://$Tenant-my$resource/" -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials  -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
@@ -788,11 +828,13 @@ function Get-AccessTokenForAzureCoreManagement
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -800,7 +842,9 @@ function Get-AccessTokenForAzureCoreManagement
     {
         $resource = $script:AzureResources[$Cloud]["windows_net_mgmt_api"] # get windows core management api resource
        ## $clientId = $script:AzureKnwonClients["office"]
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
+       if ([string]::IsNullOrEmpty($clientid)) {
+           $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
+       }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -858,11 +902,13 @@ function Get-AccessTokenForAzureManagement
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -870,7 +916,9 @@ function Get-AccessTokenForAzureManagement
     {
         $resource = $script:AzureResources[$Cloud]["azure_mgmt_api"] # get windows core management api resource
      ##   $clientId = $script:AzureKnwonClients["office"]
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
+       if ([string]::IsNullOrEmpty($clientid)) {
+          $clientId = $script:AzureKnwonClients["graph_api"] # set client Id =  1b730954-1685-4b74-9bfd-dac224a7b894 which is azure graph api
+       }
         Get-AccessToken -cloud $Cloud -RedirectUri $RedirectUri -ClientId $clientId -resource $resource -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -933,12 +981,13 @@ function Get-AccessTokenForSPO
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
-        [Parameter(Mandatory=$True)]
-        [String]$Tenant,
         [switch]$SaveToCache,
-        [switch]$Admin,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -950,8 +999,9 @@ function Get-AccessTokenForSPO
         }
 
         $resource = $script:AzureResources[$Cloud]["sharepoint"] # get windows core management api resource
-        $clientId = $script:AzureKnwonClients["spo_shell"] # set client Id =  "9bc3ab49-b65d-410a-85ad-de819febfddc" which is SPO management shell       
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["spo_shell"] # set client Id =  "9bc3ab49-b65d-410a-85ad-de819febfddc" which is SPO management shell       
+        }
         Get-AccessToken -cloud $Cloud -Tenant $Tenant -Resource "https://$Tenant$prefix.$resource/" -RedirectUri $RedirectUri -ClientId  $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode 
     }
 }
@@ -978,9 +1028,10 @@ function Get-AccessTokenForMySignins
     Process
     {
         
-        $resource = $script:AzureKnwonClients["aad_account"] # set client Id = "0000000c-0000-0000-c000-000000000000" which is AAD account    
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is graph api   
-
+        $resource = $script:AzureKnwonClients["aad_account"] # set client Id = "0000000c-0000-0000-c000-000000000000" which is AAD account   
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is graph api   
+        }
         return Get-AccessToken -cloud $Cloud -ClientId $clientId -Resource $resource -ForceMFA $true -SaveToCache $SaveToCache
     }
 }
@@ -1067,8 +1118,9 @@ function Get-AccessTokenForAADJoin
         {
 
             $resource ="urn:ms-drs:"+$script:AzureResources[$Cloud]["devicemanagementsvc"] # get Device Registration Service
-            $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is graph api 
-            
+            if ([string]::IsNullOrEmpty($clientid)) {
+                $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1b730954-1685-4b74-9bfd-dac224a7b894" which is graph api 
+            }
     
            Get-AccessToken -cloud $Cloud -ClientID $clientId -Resource $resource -RedirectUri $RedirectUri -Tenant $Tenant -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode -ForceMFA $true -BPRT $BPRT
         }
@@ -1139,8 +1191,6 @@ function Get-AccessTokenForIntuneMDM
     Param(
         [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
         [System.Management.Automation.PSCredential]$Credentials,
-        [Parameter(ParameterSetName='Credentials',Mandatory=$False)]
-        [switch]$ForceMFA,
         [Parameter(ParameterSetName='PRT',Mandatory=$True)]
         [String]$PRTToken,
         [Parameter(ParameterSetName='SAML',Mandatory=$True)]
@@ -1151,12 +1201,13 @@ function Get-AccessTokenForIntuneMDM
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
-        [Parameter(ParameterSetName='BPRT',Mandatory=$True)]
-        [string]$BPRT,
         [switch]$SaveToCache,
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1223,11 +1274,13 @@ function Get-AccessTokenForCloudShell
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1235,8 +1288,9 @@ function Get-AccessTokenForCloudShell
     {
 
         $resource = $script:AzureResources[$Cloud]["windows_net_mgmt_api"] # get windows core management api resource
-        $clientId = $script:AzureKnwonClients["android"] # set client Id = "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" which is android app
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+           $clientId = $script:AzureKnwonClients["android"] # set client Id = "0c1307d4-29d6-4389-a11c-5cbe7f65d7fa" which is android app
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1294,11 +1348,13 @@ function Get-AccessTokenForkeyvault
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1306,8 +1362,9 @@ function Get-AccessTokenForkeyvault
     {
 
         $resource = $script:AzureResources[$Cloud]["keyvault"] # get azure key vault resource Uri
-        $clientId = $script:AzureKnwonClients["graph_api"]
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"]
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1366,11 +1423,13 @@ function Get-AccessTokenForstorage
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1378,8 +1437,9 @@ function Get-AccessTokenForstorage
     {
 
         $resource = $script:AzureResources[$Cloud]["storage"] # get azure storage resource Uri
-        $clientId = $script:AzureKnwonClients["graph_api"] 
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] 
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1437,11 +1497,13 @@ function Get-AccessTokenForCosmos
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1449,8 +1511,9 @@ function Get-AccessTokenForCosmos
     {
 
         $resource = $script:AzureResources[$Cloud]["cosmos"] # get azure cosmos DB resource 
-        $clientId = $script:AzureKnwonClients["graph_api"] 
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] 
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1508,11 +1571,13 @@ function Get-AccessTokenForPowerBI
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1520,7 +1585,9 @@ function Get-AccessTokenForPowerBI
     {
 
         $resource = $script:AzureResources[$Cloud]["powerBI"] # get azure powerBI resource Uri
-        $clientId = $script:AzureKnwonClients["graph_api"] 
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] 
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1577,11 +1644,13 @@ function Get-AccessTokenForTeams
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1589,8 +1658,9 @@ function Get-AccessTokenForTeams
     {
 
         $resource = $script:AzureResources[$Cloud]["spacesapi"] # set resource to skype/teams
-        $clientId = $script:AzureKnwonClients["teams"] # set client Id = "1fec8e78-bce4-4aaf-ab1b-5451cc387264" which is teams app
-
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["teams"] # set client Id = "1fec8e78-bce4-4aaf-ab1b-5451cc387264" which is teams app
+        }
         Get-AccessToken -cloud $Cloud -Resource $Resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1730,17 +1800,21 @@ function Get-AccessTokenForMSCommerce
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
-        $clientId = $script:AzureKnwonClients['mscommerce'] # get ms commerce api client id 
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients['mscommerce'] # get ms commerce api client id 
+        }
         $resource = $script:AzureKnwonClients["m365licent"] # set resource as M365 License Manager
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
@@ -1794,17 +1868,21 @@ function Get-AccessTokenForMSPartner
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
-        $clientId = $script:AzureKnwonClients["office"] # set client as office client id 
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["office"] # set client as office client id 
+        }
         $resource = $script:AzureKnwonClients["mspartner"] # set resource as mspartner API
         # The correct client id would be 4990cffe-04e8-4e8b-808a-1175604b879f but that flow doesn't work :(
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
@@ -1860,19 +1938,23 @@ function Get-AccessTokenForAdmin
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
     Process
     {
-
+    
         $resource = $script:AzureResources[$Cloud]['admin'] # get M365 admin portal resource
-        $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c"  which is office client app
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["office"] # set client Id = "d3590ed6-52b3-4102-aeff-aad2292ab01c"  which is office client app
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientid -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1926,11 +2008,13 @@ function Get-AccessTokenForOneNote
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1938,7 +2022,9 @@ function Get-AccessTokenForOneNote
     {
 
         $resource = $script:AzureResources[$Cloud]['onenote'] # get onenote resource
-        $clientId = $script:AzureKnwonClients["teams_client"] # set client Id = "1fec8e78-bce4-4aaf-ab1b-5451cc387264" which is teams client app        
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["teams_client"] # set client Id = "1fec8e78-bce4-4aaf-ab1b-5451cc387264" which is teams client app        
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
@@ -1993,11 +2079,13 @@ function Get-AccessTokenForMip
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$false)]
+        [String]$clientid,
         [Parameter(ParameterSetName='DeviceCode',Mandatory=$True)]
         [switch]$UseDeviceCode,
         [switch]$SaveToCache,
-        [Parameter(Mandatory=$False)]
-        [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -2005,7 +2093,9 @@ function Get-AccessTokenForMip
     {
 
         $resource = $script:AzureResources[$Cloud]['mip'] # get onenote resource
-        $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1fec8e78-bce4-4aaf-ab1b-5451cc387264" which is teams client app        
+        if ([string]::IsNullOrEmpty($clientid)) {
+            $clientId = $script:AzureKnwonClients["graph_api"] # set client Id = "1fec8e78-bce4-4aaf-ab1b-5451cc387264" which is teams client app        
+        }
         Get-AccessToken -cloud $Cloud -Resource $resource -RedirectUri $RedirectUri -ClientId $clientId -KerberosTicket $KerberosTicket -Domain $Domain -SAMLToken $SAMLToken -Credentials $Credentials -SaveToCache $SaveToCache -Tenant $Tenant -PRTToken $PRTToken -UseDeviceCode $UseDeviceCode
     }
 }
