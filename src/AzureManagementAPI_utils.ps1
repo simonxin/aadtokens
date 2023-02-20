@@ -151,11 +151,12 @@ function Call-AzureManagementAPI
     Process
     {
 
+
         # if tenant cloud does not match with default cloud, will use tenant cloud  
         if(![string]::IsNullOrEmpty($Tenant))
         {
             $tenantcloud = Get-TenantCloud -tenantId $Tenant
-
+            write-verbose "tenant cloud is detected as $tenantcloud"
             if(![string]::IsNullOrEmpty($tenantcloud)) {
                 $cloud =  $tenantcloud
             }

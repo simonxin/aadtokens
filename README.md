@@ -92,6 +92,9 @@ If the current required cloud is not the expected one, you can set default cloud
 
 ### [PIM API usage - Privileged Access Group only](./doc/PIM.md)
 
+# Use for CC B2b
+
+### [usage to support Cross Cloud B2B](./doc/ccb2b.md)
 
 # Powershell Modules Cmdlets reference
 	

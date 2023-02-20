@@ -41,7 +41,7 @@ function Call-MSGraphAPI
         if(![string]::IsNullOrEmpty($Tenant))
         {
             $tenantcloud = Get-TenantCloud -tenantId $Tenant
-
+            write-verbose "tenant cloud is detected as $tenantcloud"
             if(![string]::IsNullOrEmpty($tenantcloud)) {
                 $cloud =  $tenantcloud
             }
