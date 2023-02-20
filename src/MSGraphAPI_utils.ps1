@@ -37,6 +37,16 @@ function Call-MSGraphAPI
     Process
     {
 
+        # if tenant cloud does not match with default cloud, will use tenant cloud  
+        if(![string]::IsNullOrEmpty($Tenant))
+        {
+            $tenantcloud = Get-TenantCloud -tenantId $Tenant
+
+            if(![string]::IsNullOrEmpty($tenantcloud)) {
+                $cloud =  $tenantcloud
+            }
+        }
+
         # set msgraph api
 
         $msgraphapi = $script:AzureResources[$Cloud]["ms_graph_api"].trimend("/") 

@@ -151,6 +151,16 @@ function Call-AzureManagementAPI
     Process
     {
 
+        # if tenant cloud does not match with default cloud, will use tenant cloud  
+        if(![string]::IsNullOrEmpty($Tenant))
+        {
+            $tenantcloud = Get-TenantCloud -tenantId $Tenant
+
+            if(![string]::IsNullOrEmpty($tenantcloud)) {
+                $cloud =  $tenantcloud
+            }
+        }
+
         $azuremanagement = $script:AzureResources[$Cloud]['azure_mgmt_api'].trimend("/") # get Azure Management API
 
         if ([string]::IsNullOrEmpty($clientId)) {

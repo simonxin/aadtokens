@@ -692,8 +692,57 @@ function Get-CredentialType
     }
 }
 
+
+
+# Return cloud instance
+function Get-TenantCloud
+{
+<#
+    .SYNOPSIS
+    Returns cloud instance based on tenantId
+
+    .Example
+    Get-TenantCloud -tenantId <tenantId>
+  
+#>
+    [cmdletbinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String]$tenantId,
+
+        [Parameter(Mandatory=$false)]
+        [String]$cloud=$script:DefaultAzureCloud
+    )
+    Process
+    {
+
+        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
+        $uri = "$aadloginuri/$tenantId/.well-known/openid-configuration"
+     
+        try {
+            $openIdConfig=Invoke-RestMethod -UseBasicParsing $uri
+        }
+        catch {
+            Write-Verbose "failed to get cloud instance from tenant: $tenantId"
+            return $NULL
+        }
+
+         if ($openIdConfig.cloud_instance_name -like   "partner.microsoftonline.cn") {
+            return  "AzureChina"
+
+        } elseif ($openIdConfig.cloud_instance_name -like   "microsoftonline.com") {
+            return  "AzurePublic"
+
+        } else { 
+            write-verbose "currently supported cloud is Azure China and Azure Public. $($openIdConfig.cloud_instance_name) is not supported yet"
+            return $NULL       
+        }
+
+    }
+}
+
+
 # Return OpenID configuration for the domain
-# Mar 21 2019
 function Get-OpenIDConfiguration
 {
 <#

@@ -37,6 +37,16 @@ function Call-MSPIMAPI
     Process
     {
 
+        # if tenant cloud does not match with default cloud, will use tenant cloud        
+        if(![string]::IsNullOrEmpty($Tenant))
+        {
+            $tenantcloud = Get-TenantCloud -tenantId $Tenant
+
+            if(![string]::IsNullOrEmpty($tenantcloud)) {
+                $cloud =  $tenantcloud
+            }
+        }
+
         # set msgraph api
 
         $mspimapi = $script:AzureResources[$Cloud]["ms-pim"].trimend("/") 

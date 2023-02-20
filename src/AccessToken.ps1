@@ -2343,6 +2343,17 @@ function Get-AccessToken
     )
     Process
     {
+
+        # if tenant cloud does not match with default cloud, will use tenant cloud
+        if(![string]::IsNullOrEmpty($Tenant))
+        {
+            $tenantcloud = Get-TenantCloud -tenantId $Tenant
+
+            if(![string]::IsNullOrEmpty($tenantcloud)) {
+                $cloud =  $tenantcloud
+            }
+        }
+
         
         $aadgraph = $script:AzureResources[$Cloud]['aad_graph_api']
         $devicemanagementsvc = $script:AzureResources[$Cloud]['devicemanagementsvc']
