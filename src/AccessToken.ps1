@@ -2251,9 +2251,9 @@ function Get-Idtoken
           
         # return null if the output contains error
         if(![string]::IsNullOrEmpty($queryOutput["error"])){
-              Write-Error $queryOutput["error"]
-              Write-Error $queryOutput["error_uri"]
-              Write-Error $queryOutput["error_description"]     
+              Write-Verbose $queryOutput["error"]
+              Write-Verbose $queryOutput["error_uri"]
+              Write-Verbose $queryOutput["error_description"]     
   
               return $null
              
@@ -2387,7 +2387,7 @@ function Get-AccessToken
         elseif(![String]::IsNullOrEmpty($PRTToken)) # Check if we got a PRT token
         {
 
-            Write-Error "PRT token accessing is not implemented due to security considering"
+            Write-Verbose "PRT token accessing is not implemented due to security considering"
             return $NULL
 
             # Get token using the PRT token
@@ -2665,6 +2665,7 @@ function Get-AccessTokenUsingDeviceCode
             "device_code" = $authResponse.device_code           
         }
 
+        Write-Host $authResponse.message
         Write-verbose "ACCESS TOKEN BODY: $($body | Out-String)"
         Write-Verbose "try loop device code with a interval: $interval seconds and will be expired after $expires seconds"
         $total = 0
@@ -2679,27 +2680,27 @@ function Get-AccessTokenUsingDeviceCode
 
             if($total -gt $expires)
             {
-                Write-Error "Timeout occurred"
+                Write-Verbose "Timeout occurred"
                 return
             }
                         
             # Try to get the response. Will give 40x while pending so we need to try&catch
             try
             {
-                $response = Invoke-RestMethod -UseBasicParsing -Method POST -Uri "$aadlogin/$Tenant/oauth2/v2.0/token?api-version=1.0 " -Body $body -ErrorAction SilentlyContinue
+                $response = Invoke-RestMethod -UseBasicParsing -Method POST -Uri "$aadlogin/$Tenant/oauth2/v2.0/token?api-version=1.0" -Body $body -ErrorAction SilentlyContinue
             }
             catch
             {
                 # This normal flow, always returns 40x unless successful
                 $details=$_.ErrorDetails.Message | ConvertFrom-Json
                 $continue = $details.error -eq "authorization_pending"
-                Write-Verbose $details.error
-                Write-Error"." -NoNewline
-
+                Write-Verbose $details.Error
+                Write-host "." -NoNewline
+                   
                 if(!$continue)
                 {
                     # Not authorization_pending so this is a real error :(
-                    Write-Error $details.error_description
+                    Write-Verbose $details.error_description
                     return
                 } else {
                     continue
