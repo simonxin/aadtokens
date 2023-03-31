@@ -756,7 +756,7 @@ function Get-AccessTokenForOneDrive
         [String]$Domain,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory=$True)]
         [String]$Tenant,
         [Parameter(Mandatory=$false)]
         [String]$clientid,
