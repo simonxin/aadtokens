@@ -2544,7 +2544,7 @@ function Get-AccessTokenWithRefreshToken
     {
 
         # default scope
-        $scopevalue = get-oauthscopes -resource $resource -authflow 'code' -scope $scope -IncludeRefreshToken $IncludeRefreshToken
+        $scopevalue = get-oauthscopes -resource $resource -authflow 'refreshtoken' -scope $scope -IncludeRefreshToken $IncludeRefreshToken
         
         # Set the body for API call
         $body = @{

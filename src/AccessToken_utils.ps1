@@ -1563,7 +1563,7 @@ function get-oauthscopes
         [Parameter(Mandatory=$false)]
         [String]$scope, # multiple scope required to seperate with '' or ,
         [Parameter(Mandatory=$true)]
-        [ValidateSet("code", "password","client_credentials","device_code","jwt-bearer","legacy","obo")]
+        [ValidateSet("code", "password","client_credentials","device_code","jwt-bearer","legacy","obo","refreshtoken")]
         [String]$authflow,
         [Parameter(Mandatory=$False)]
         [bool]$IncludeRefreshToken=$false
@@ -1623,7 +1623,7 @@ function get-oauthscopes
            
 
         # default scope
-        if ($IncludeRefreshToken) {
+        if ($IncludeRefreshToken -and $authflow -ne 'refreshtoken') {
             $scopevalue =  $scopevalue + " offline_access"
         } 
         
