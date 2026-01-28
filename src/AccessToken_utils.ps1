@@ -1972,7 +1972,6 @@ function Prompt-Credentials_v2 {
         }
 
         $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
-        $mdm = $script:AzureResources[$Cloud]['mdm']
 
         if([string]::IsNullOrEmpty($RedirectUri))
         {
@@ -1995,25 +1994,31 @@ function Prompt-Credentials_v2 {
         }
  
 
-        Write-Verbose "Using Cloud: $Cloud (Environment: $AzureEnvironment)"
+        Write-Verbose "Using Cloud: $Cloud (Environment: $cloud)"
         Write-Verbose "Using TenantId: $TenantId"
         Write-Verbose "Using ClientId: $ClientId"
         Write-Verbose "Using scope: $scope"
 
         try {
-                 # Get token using MSAL.PS
+
+            $authority =  $aadloginuri + "/" + $Tenant
+        
+            $app = New-MsalClientApplication -Authority $authority -ClientId $ClientId
+
+            # Get token using MSAL.PS
                  $tokenParams = @{
                      ClientId         = $ClientId
                      TenantId         = $TenantId
                      Scopes           = $Scopes
                      RedirectUri      = $RedirectUri
-                     AzureCloudInstance = $AzureEnvironment
+                     AzureCloudInstance = $cloud
                      Interactive      = $true
                  }
 
-                 $token = Get-MsalToken @tokenParams
-
-                 return $token
+            $token = $app | Get-MsalToken @tokenParams
+            $app | remove-MsalClientApplication
+            
+            return $token
         }
         catch {
                  Write-Error "Failed to acquire token: $_"
