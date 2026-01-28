@@ -3,8 +3,18 @@
 
 # VARIABLES
 
+if (-not (Get-Module -ListAvailable -Name MSAL.PS)) {
+    Write-Host "MSAL.PS module not found. Installing..."
+    Install-Module -Name MSAL.PS -Force -AllowClobber
+}
+
+Import-Module MSAL.PS -Force
+
+
 # Unix epoch time (1.1.1970)
 $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millisecond 0
+
+
 
 $DefaultAzureCloud = "AzureChina"
 Add-Type -AssemblyName System.Web
@@ -963,6 +973,113 @@ function Get-TenantID
     }
 }
 
+function Get-AadTokenScope {
+    <#
+    .SYNOPSIS
+        Creates or validates Entra ID token request scopes.
+    
+    .DESCRIPTION
+        Validates scope format or constructs proper scope string from resource and scopes parameters.
+        Supports formats: {resource}/.default, {resource}/{scopes}, api://{appId}/{scopes}
+    
+    .PARAMETER Scopes
+        The scope string or array of scopes. Can be full scope URI or just scope names.
+    
+    .PARAMETER Resource
+        The resource identifier - either a URL (e.g., https://graph.microsoft.com) 
+        or an Application ID GUID.
+    
+    .EXAMPLE
+        Get-AadTokenScope -Scopes "https://graph.microsoft.com/.default"
+        # Returns: https://graph.microsoft.com/.default
+    
+    .EXAMPLE
+        Get-AadTokenScope -Scopes "User.Read","Mail.Read" -Resource "https://graph.microsoft.com"
+        # Returns: https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read
+    
+    .EXAMPLE
+        Get-AadTokenScope -Resource "1eaf2d90-1992-4304-a391-3cd3b56ce817"
+        # Returns: api://1eaf2d90-1992-4304-a391-3cd3b56ce817/.default
+    
+    .EXAMPLE
+        Get-AadTokenScope -Scopes "access_as_user" -Resource "1eaf2d90-1992-4304-a391-3cd3b56ce817"
+        # Returns: api://1eaf2d90-1992-4304-a391-3cd3b56ce817/access_as_user
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string[]]$Scopes = '.default',
+
+        [Parameter(Mandatory = $false)]
+        [string]$Resource
+    )
+
+    # Regex patterns
+    $guidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    $urlPattern = '^https?://'
+    $fullScopePattern = '^(https?://[^/]+|api://[^/]+)/.+'
+
+    # Function to check if scope is already a full scope string
+    function Test-FullScopeFormat {
+        param([string]$Scope)
+        return $Scope -match $fullScopePattern
+    }
+
+    # Function to check if string is a GUID (Application ID)
+    function Test-IsGuid {
+        param([string]$Value)
+        return $Value -match $guidPattern
+    }
+
+    # Function to check if string is a URL
+    function Test-IsUrl {
+        param([string]$Value)
+        return $Value -match $urlPattern
+    }
+
+    # Determine resource type and build scope
+    $resultScopes = ""
+
+    # At this point, we need to construct scopes from resource
+    if (-not $Resource) {
+        $resource = $script:AzureResources[$Cloud]["ms_graph_api"] # get MS graph resource based on cloud
+    }
+
+    # If scopes provided, check if already in full format
+    if ($Scopes -and $Scopes.Count -gt 0) {
+        $validScopes = $Scopes -join ' '
+
+        if (Test-FullScopeFormat -Scope $validScopes) {
+                $resultScopes = $validScopes
+        }
+            else {
+
+                if (Test-IsUrl -Value $Resource) {
+                    # Resource is a URL (e.g., https://graph.microsoft.com)
+                    $resourceBase = $Resource.TrimEnd('/')
+                    $resultScopes = "$resourceBase/$validScopes"  
+                
+                }
+                elseif (Test-IsGuid -Value $Resource) {
+                    # Resource is an Application ID (GUID)
+                    $appIdUri = "api://$Resource"
+                    $resultScopes = "$appIdUri/$validScopes"  
+                
+                }
+                else {
+                    # Resource might be an wrong format 
+                    write-error "inputed resource $resource and scopes $validScopes are not valid to build a scope"
+                    write-warning "fallback to graph API with default scope"
+                    $resultScopes = "$($script:AzureResources[$Cloud]["ms_graph_api"])/.default"
+                }
+
+        }
+    }
+
+    return  $resultScopes  
+}
+
+
 # Check if the access token has expired
 function Is-AccessTokenExpired
 {
@@ -1655,7 +1772,7 @@ function Prompt-Credentials
         [Parameter(Mandatory=$false)]
         [bool]$IncludeRefreshToken=$false,
         [Parameter(Mandatory=$false)]
-        [String]$prompt="login",  # values like login, consent, admin_consent, none      
+        [String]$prompt="login",  # values like login, consent, admin_consent, select_account, none      
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
 
@@ -1771,6 +1888,136 @@ function Prompt-Credentials
             Write-Verbose "no authorization code available from login attempts"
             $form.Controls[0].Dispose()
             return $null
+        }
+    }
+}
+
+
+# Prompts for credentials and gets the access token
+# Supports MFA, federation, etc.
+# use MSAL.PS module 
+function Prompt-Credentials_v2 {
+         <#
+         .SYNOPSIS
+         Get access token using MSAL.PS module with cloud and tenant support.
+
+         .DESCRIPTION
+         Uses MSAL.PS module to acquire access token. Checks if tenant exists, uses 'common' if not.
+         Sets application based on cloud parameter. Warns if client is not a known client and tenant is missing.
+
+         .PARAMETER Resource
+         The resource/scope to request access for.
+
+         .PARAMETER ClientId
+         The application client ID. Defaults to graph_api (1b730954-1685-4b74-9bfd-dac224a7b894).
+
+         .PARAMETER TenantId
+         The Azure AD tenant ID. Uses 'common' if not specified.
+
+         .PARAMETER Cloud
+         The Azure cloud environment: AzurePublic, AzureChina, USGov, USGovDoD. Defaults to AzurePublic.
+
+         .PARAMETER Scope
+         Additional scopes to request.
+
+         .PARAMETER RedirectUri
+         The redirect URI for authentication.
+
+         .EXAMPLE
+         Get-MSALToken -Resource "https://graph.microsoft.com" -TenantId "contoso.onmicrosoft.com" -Cloud "AzurePublic"
+
+         .EXAMPLE
+         Get-MSALToken -Resource "https://microsoftgraph.chinacloudapi.cn" -Cloud "AzureChina"
+         #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [String]$Resource,
+        [Parameter(Mandatory=$true)]
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
+        [Parameter(Mandatory=$False)]
+        [String]$clientSecret,
+        [Parameter(Mandatory=$False)]
+        [String]$Tenant,
+        [Parameter(Mandatory=$False)]
+        [bool]$ForceMFA=$false,
+        [Parameter(Mandatory=$false)]
+        [String]$RedirectUri,
+        [Parameter(Mandatory=$false)]
+        [String]$scope,
+        [Parameter(Mandatory=$false)]
+        [bool]$IncludeRefreshToken=$false,
+        [Parameter(Mandatory=$false)]
+        [String]$prompt="login",  # values like login, consent, admin_consent, select_account, none      
+        [Parameter(Mandatory=$false)]
+        [String]$Cloud=$script:DefaultAzureCloud
+    )
+
+    Process {
+
+        # Check the tenant
+        if([String]::IsNullOrEmpty($Tenant))        
+        {
+            $Tenant = "common"
+            Write-Verbose "TenantId not specified, using 'common'"
+        }
+
+        if ($script:AzureKnwonClients.Values -contains $ClientId) {
+            write-verbose "request access token with known public client application"
+                
+        } else {
+            if ($Tenant -eq "common") {
+                write-warning "client application: $Clientid is not a known public application. You may need to privde a value tenant ID in request"
+            }
+        }
+
+        $aadloginuri = $script:AzureResources[$Cloud]['aad_login']
+        $mdm = $script:AzureResources[$Cloud]['mdm']
+
+        if([string]::IsNullOrEmpty($RedirectUri))
+        {
+            $RedirectUri = Get-AuthRedirectUrl -ClientId $ClientId -Resource $Resource
+        }
+
+        # Set variables
+        $auth_redirect= $RedirectUri
+        $client_id=     $ClientId # Usually should be graph_api
+
+        if ($auth_redirect -like "urn:ietf:wg:oauth:2.0:oob*") {
+            $auth_redirect=[System.Web.HttpUtility]::UrlEncode($auth_redirect)
+        }
+
+        # Build scopes array
+        if ($scope) {
+            $scopes = get-AadTokenScope -resource $resource -scopes $scope
+        } else {
+            $scopes = get-AadTokenScope -resource $resource
+        }
+ 
+
+        Write-Verbose "Using Cloud: $Cloud (Environment: $AzureEnvironment)"
+        Write-Verbose "Using TenantId: $TenantId"
+        Write-Verbose "Using ClientId: $ClientId"
+        Write-Verbose "Using scope: $scope"
+
+        try {
+                 # Get token using MSAL.PS
+                 $tokenParams = @{
+                     ClientId         = $ClientId
+                     TenantId         = $TenantId
+                     Scopes           = $Scopes
+                     RedirectUri      = $RedirectUri
+                     AzureCloudInstance = $AzureEnvironment
+                     Interactive      = $true
+                 }
+
+                 $token = Get-MsalToken @tokenParams
+
+                 return $token
+        }
+        catch {
+                 Write-Error "Failed to acquire token: $_"
+                 return $null
         }
     }
 }

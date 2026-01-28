@@ -2416,7 +2416,7 @@ function Get-AccessToken
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
            
-                $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt -IncludeRefreshToken $needrefreshtoken
+                $OAuthInfo = Prompt-Credentials_v2 -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt -IncludeRefreshToken $needrefreshtoken
                 
             }
             else
