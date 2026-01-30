@@ -2333,7 +2333,7 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$PfxFileName,
         [Parameter(Mandatory=$False)]
-        [string]$prompt="login",
+        [string]$prompt="login", # default to login prompt, supported value like login, select_account, consent, none
         [Parameter(Mandatory=$False)]
         [securestring]$PfxPassword,
         [Parameter(Mandatory=$False)]
@@ -2416,7 +2416,7 @@ function Get-AccessToken
             if([string]::IsNullOrEmpty($Credentials) -and [string]::IsNullOrEmpty($SAMLToken))
             {
            
-                $OAuthInfo = Prompt-Credentials_v2 -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -Tenant $Tenant -ForceMFA $ForceMFA -redirecturi $RedirectUri -scope $scope -Prompt $prompt -IncludeRefreshToken $needrefreshtoken
+                $OAuthInfo = Prompt-Credentials -cloud $Cloud -Resource $Resource -ClientId $ClientId -clientSecret $clientSecret -ForceMFA $ForceMFA -Tenant $Tenant -redirecturi $RedirectUri -scope $scope -Prompt $prompt -IncludeRefreshToken $needrefreshtoken
                 
             }
             else
@@ -2487,7 +2487,7 @@ function Get-AccessToken
         # Return
         if([string]::IsNullOrEmpty($access_token))
         {
-            Throw "Could not get Access Token!"
+          Throw "Could not get Access Token!"
         } elseif  ($SaveToCache)    # Don't print out token if saved to cache!
         {
             $tokenitem =  read-accesstoken $access_token

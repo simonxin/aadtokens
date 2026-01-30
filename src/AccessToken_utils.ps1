@@ -17,8 +17,12 @@ $epoch = Get-Date -Day 1 -Month 1 -Year 1970 -Hour 0 -Minute 0 -Second 0 -Millis
 
 
 $DefaultAzureCloud = "AzureChina"
-Add-Type -AssemblyName System.Web
+
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Web
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
 
 
 # Clear the Forms.WebBrowser data
@@ -1757,8 +1761,8 @@ function Prompt-Credentials
     Param(
         [Parameter(Mandatory=$true)]
         [String]$Resource,
-        [Parameter(Mandatory=$true)]
-        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
+        [Parameter(Mandatory=$false)]
+        [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894", <# graph_api #>
         [Parameter(Mandatory=$False)]
         [String]$clientSecret,
         [Parameter(Mandatory=$False)]
@@ -1835,7 +1839,7 @@ function Prompt-Credentials
         }
 
         # Create the form and get output     
-        $output = Show-OAuthWindow -Url $url
+        $output = Get-OAuthCodeWebView2 -AuthUrl $url -RedirectUri $RedirectUri
 
         # return null if the output contains error
         if(![string]::IsNullOrEmpty($output["error"])){
@@ -1933,22 +1937,24 @@ function Prompt-Credentials_v2 {
     param(
         [Parameter(Mandatory=$true)]
         [String]$Resource,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [String]$ClientId="1b730954-1685-4b74-9bfd-dac224a7b894" <# graph_api #>,
         [Parameter(Mandatory=$False)]
         [String]$clientSecret,
         [Parameter(Mandatory=$False)]
         [String]$Tenant,
-        [Parameter(Mandatory=$False)]
-        [bool]$ForceMFA=$false,
         [Parameter(Mandatory=$false)]
         [String]$RedirectUri,
         [Parameter(Mandatory=$false)]
         [String]$scope,
         [Parameter(Mandatory=$false)]
+        [String]$loginhint=$null,
+        [Parameter(Mandatory=$false)]
         [bool]$IncludeRefreshToken=$false,
         [Parameter(Mandatory=$false)]
-        [String]$prompt="login",  # values like login, consent, admin_consent, select_account, none      
+        [String]$prompt="selectaccount",  # values like consent, selectaccount， ForceLogin
+        [Parameter(Mandatory=$false)]
+        [bool]$ForceRefresh=$true,  # default will use MSAL cached refresh token to re-new access token       
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -1980,7 +1986,6 @@ function Prompt-Credentials_v2 {
 
         # Set variables
         $auth_redirect= $RedirectUri
-        $client_id=     $ClientId # Usually should be graph_api
 
         if ($auth_redirect -like "urn:ietf:wg:oauth:2.0:oob*") {
             $auth_redirect=[System.Web.HttpUtility]::UrlEncode($auth_redirect)
@@ -1992,33 +1997,41 @@ function Prompt-Credentials_v2 {
         } else {
             $scopes = get-AadTokenScope -resource $resource
         }
- 
 
         Write-Verbose "Using Cloud: $Cloud (Environment: $cloud)"
-        Write-Verbose "Using TenantId: $TenantId"
+        Write-Verbose "Using TenantId: $Tenant"
         Write-Verbose "Using ClientId: $ClientId"
-        Write-Verbose "Using scope: $scope"
+        Write-Verbose "Using redirect URI: $RedirectUri"
+        write-verbose "Using Resource: $Resource"
+        Write-Verbose "Using scope: $scopes"
+        Write-Verbose "Using prompt: $prompt"
+        Write-Verbose "Using loginhint: $loginhint"
+        write-verbose "Using ForceRefresh: $ForceRefresh"
+        write-verbose "Acquiring token interactively from authority: $($aadloginuri + '/' + $Tenant)"
 
         try {
 
             $authority =  $aadloginuri + "/" + $Tenant
-        
             $app = New-MsalClientApplication -Authority $authority -ClientId $ClientId
 
             # Get token using MSAL.PS
-                 $tokenParams = @{
-                     ClientId         = $ClientId
-                     TenantId         = $TenantId
-                     Scopes           = $Scopes
-                     RedirectUri      = $RedirectUri
-                     AzureCloudInstance = $cloud
-                     Interactive      = $true
-                 }
 
+            $tokenParams = @{
+                ClientId         = $ClientId
+                TenantId         = $Tenant
+                Scopes           = $Scopes
+                RedirectUri      = $RedirectUri
+                AzureCloudInstance = $cloud
+		        Prompt = $prompt
+		        ForceRefresh = $ForceRefresh
+		        loginhint = $loginhint
+            }
+
+
+            # disable embedded webview for better compatibility
             $token = $app | Get-MsalToken @tokenParams
-            $app | remove-MsalClientApplication
             
-            return $token
+            return $($token.AccessToken)
         }
         catch {
                  Write-Error "Failed to acquire token: $_"
@@ -2040,6 +2053,9 @@ Function Show-OAuthWindow
    # write-verbose "oauth Url: $url"
 
     $web  = New-Object -TypeName System.Windows.Forms.WebBrowser -Property @{Width=420; Height=600; Url=($url) }
+
+    $web.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $web.ScriptErrorsSuppressed = $true
 
     $DocComp  = {
         $Global:uri = $web.Url.AbsoluteUri
@@ -2066,6 +2082,275 @@ Function Show-OAuthWindow
     $output
 }
  
+
+function Get-OAuthCodeWebView2 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AuthUrl,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$RedirectUri = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+    )
+    
+    Write-Verbose "=== OAuth Authorization Code Flow (WebView2 Embedded) ===" 
+    Write-Verbose "Auth URL: $AuthUrl"
+    Write-Verbose "Redirect URI: $RedirectUri"
+
+    # Download and load WebView2 SDK
+    $PackageDir = "$env:LOCALAPPDATA\WebView2SDK"
+
+    Write-Verbose "Checking WebView2 SDK..." 
+
+    # Find DLLs (check existing first) - Use WinForms version instead of WPF to avoid keyboard input issues
+    $CoreDll = Get-ChildItem -Path $PackageDir -Recurse -Filter "Microsoft.Web.WebView2.Core.dll" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DirectoryName -match "net462|net45|netcoreapp" -and $_.DirectoryName -notmatch "ref" } | 
+        Select-Object -First 1
+
+    $WinFormsDll = Get-ChildItem -Path $PackageDir -Recurse -Filter "Microsoft.Web.WebView2.WinForms.dll" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DirectoryName -match "net462|net45|netcoreapp" -and $_.DirectoryName -notmatch "ref" } | 
+        Select-Object -First 1
+
+    # If not found, download and install
+    if (-not $CoreDll -or -not $WinFormsDll) {
+        Write-Verbose "Downloading WebView2 SDK..." 
+        
+        if (Test-Path $PackageDir) {
+            Remove-Item -Path $PackageDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        New-Item -ItemType Directory -Path $PackageDir -Force | Out-Null
+        
+        # Download nuget.exe
+        $NugetExe = "$PackageDir\nuget.exe"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        
+        try {
+            Invoke-WebRequest -Uri "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $NugetExe -UseBasicParsing
+            Write-Verbose "nuget.exe downloaded"
+        } catch {
+            Write-Verbose "Failed to download nuget.exe: $_"
+            return $null
+        }
+        
+        # Install WebView2 package
+        Write-Verbose "Installing WebView2 NuGet package..." 
+        $result = & $NugetExe install Microsoft.Web.WebView2 -OutputDirectory $PackageDir -Source "https://api.nuget.org/v3/index.json" 2>&1
+        Write-Verbose $result
+        
+        # Find DLLs again
+        $CoreDll = Get-ChildItem -Path $PackageDir -Recurse -Filter "Microsoft.Web.WebView2.Core.dll" |
+            Where-Object { $_.DirectoryName -match "net462|net45|netcoreapp" -and $_.DirectoryName -notmatch "ref" } | 
+            Select-Object -First 1
+        
+        $WinFormsDll = Get-ChildItem -Path $PackageDir -Recurse -Filter "Microsoft.Web.WebView2.WinForms.dll" |
+            Where-Object { $_.DirectoryName -match "net462|net45|netcoreapp" -and $_.DirectoryName -notmatch "ref" } | 
+            Select-Object -First 1
+    }
+
+    if (-not $CoreDll -or -not $WinFormsDll) {
+        Write-Verbose "Cannot find WebView2 SDK DLLs"
+        return $null
+    }
+
+    Write-Verbose "Loading WebView2 SDK..."
+    try {
+        # Check if WebView2 assemblies are already loaded
+        $loadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies()
+        $coreLoaded = $loadedAssemblies | Where-Object { $_.GetName().Name -eq 'Microsoft.Web.WebView2.Core' }
+        $winformsLoaded = $loadedAssemblies | Where-Object { $_.GetName().Name -eq 'Microsoft.Web.WebView2.WinForms' }
+        
+        if (-not $coreLoaded) {
+            Add-Type -Path $CoreDll.FullName -ErrorAction Stop
+        } else {
+            Write-Verbose "WebView2.Core already loaded (version: $($coreLoaded.GetName().Version))"
+        }
+        
+        if (-not $winformsLoaded) {
+            Add-Type -Path $WinFormsDll.FullName -ErrorAction Stop
+        } else {
+            Write-Verbose "WebView2.WinForms already loaded (version: $($winformsLoaded.GetName().Version))"
+        }
+        
+        Write-Verbose "WebView2 SDK loaded successfully"
+        
+        # Verify WebView2 Runtime
+        $runtimeVersion = [Microsoft.Web.WebView2.Core.CoreWebView2Environment]::GetAvailableBrowserVersionString()
+        Write-Verbose "WebView2 Runtime version: $runtimeVersion"
+    } catch {
+        Write-Verbose "Failed to load WebView2 SDK: $_"
+        return $null
+    }
+
+    # Result variables
+    $script:AuthCode = $null
+    $script:AuthError = $null
+    $script:AuthErrorDescription = $null
+
+    # URL check function
+    $TestAuthUrl = {
+        param([string]$Url)
+        
+        Write-Verbose "URL: $Url"
+        
+        # Check if reached redirect URI with valid code
+        if ($Url.StartsWith($RedirectUri) -or $Url -match "nativeclient" -or $Url -match "localhost") {
+            if ($Url -match "[?&]code=([^&]+)") {
+                $CodeValue = [System.Web.HttpUtility]::UrlDecode($Matches[1])
+                
+                # Validate authorization code
+                $InvalidCodes = @("cancel", "error", "denied", "failed")
+                $IsInvalid = $InvalidCodes | Where-Object { $CodeValue -eq $_ -or $CodeValue.StartsWith($_) }
+                
+                if (-not $IsInvalid -and $CodeValue.Length -gt 20) {
+                    $script:AuthCode = $CodeValue
+                    Write-Verbose "Code captured!"
+                    return "success"
+                }
+            }
+            
+            # Check for errors
+            if ($Url -match "[?&]error=([^&]+)") {
+                $script:AuthError = [System.Web.HttpUtility]::UrlDecode($Matches[1])
+                if ($Url -match "[?&]error_description=([^&]+)") {
+                    $script:AuthErrorDescription = [System.Web.HttpUtility]::UrlDecode($Matches[1])
+                }
+                Write-Verbose "Error captured: $($script:AuthError) - $($script:AuthErrorDescription)"
+                return "error"
+            }
+        }
+        
+        return "continue"
+    }
+
+    # Create Windows Forms window
+    $Form = New-Object System.Windows.Forms.Form
+    $Form.Text = "Azure AD Sign In"
+    $Form.Width = 800
+    $Form.Height = 700
+    $Form.StartPosition = "CenterScreen"
+
+    # Create WinForms WebView2 control directly (no ElementHost needed)
+    $WebView2 = New-Object Microsoft.Web.WebView2.WinForms.WebView2
+    $WebView2.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $Form.Controls.Add($WebView2)
+
+    # Set user data directory
+    $UserDataFolder = "$env:LOCALAPPDATA\WebView2UserData_OAuth"
+    if (-not (Test-Path $UserDataFolder)) {
+        New-Item -ItemType Directory -Path $UserDataFolder -Force | Out-Null
+    }
+
+    # Initialize WebView2 after window is shown
+    $Form.Add_Shown({
+        Write-Verbose "Initializing WebView2..." 
+        
+        try {
+            # Create environment
+            $createTask = [Microsoft.Web.WebView2.Core.CoreWebView2Environment]::CreateAsync($null, $UserDataFolder, $null)
+            
+            while (-not $createTask.IsCompleted) {
+                [System.Windows.Forms.Application]::DoEvents()
+                Start-Sleep -Milliseconds 50
+            }
+            
+            if ($createTask.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) {
+                $env = $createTask.Result
+                Write-Verbose "Environment created successfully"
+                
+                # Initialize WebView2
+                $initTask = $WebView2.EnsureCoreWebView2Async($env)
+                
+                while (-not $initTask.IsCompleted) {
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 50
+                }
+                
+                Write-Verbose "WebView2 initialization completed"
+                
+                # Add event handlers
+                $WebView2.CoreWebView2.Add_NavigationStarting({
+                    param($s, $args)
+                    $result = & $TestAuthUrl $args.Uri
+                    if ($result -ne "continue") {
+                        $args.Cancel = $true
+                        $Form.Close()
+                    }
+                })
+                
+                $WebView2.CoreWebView2.Add_SourceChanged({
+                    param($s, $args)
+                    $result = & $TestAuthUrl $WebView2.Source.ToString()
+                    if ($result -ne "continue") {
+                        $Form.Close()
+                    }
+                })
+                
+                # Navigate to authorization URL
+                Write-Verbose "Navigating to authorization URL..."
+                $WebView2.CoreWebView2.Navigate($AuthUrl)
+                
+                # Set focus to WebView2 for keyboard input
+                $WebView2.Focus()
+            } else {
+                Write-Error "Failed to create environment: $($createTask.Exception)"
+                $Form.Close()
+            }
+        } catch {
+            Write-Error "Initialization error: $_"
+            $Form.Close()
+        }
+    })
+
+    Write-Information "Opening login window..." 
+    Write-Information "(Please complete sign-in in the popup window)"
+
+    # Show window
+    [void]$Form.ShowDialog()
+
+    # Cleanup
+    $WebView2.Dispose()
+    $Form.Dispose()
+
+    # Build output
+    $output = $null
+    
+    Write-Host ""
+    if ($script:AuthCode) {
+        Write-Information "=== Authentication Successful ===" 
+        Write-Verbose "Authorization Code:" 
+        Write-Verbose $script:AuthCode
+            
+        $output = @{
+            Success = $true
+            Code = $script:AuthCode
+            Error = $null
+            ErrorDescription = $null
+        }
+    } elseif ($script:AuthError) {
+        Write-Error "=== Authentication Failed ===" 
+        Write-Error "Error: $script:AuthError"
+        Write-Error "Description: $script:AuthErrorDescription"
+        
+        $output = @{
+            Success = $false
+            Code = $null
+            Error = $script:AuthError
+            ErrorDescription = $script:AuthErrorDescription
+        }
+    } else {
+        Write-Warning "=== User Cancelled ===" 
+        
+        $output = @{
+            Success = $false
+            Code = $null
+            Error = "user_cancelled"
+            ErrorDescription = "User closed the login window"
+        }
+    }
+    
+    return $output
+}
+
 
 
 function Clear-WebBrowser
@@ -2407,6 +2692,7 @@ function Clear-Cache
     {
         $script:tokens =         @{}
         $script:refresh_tokens = @{}
+        Write-Verbose "Cleared AADInternals credentials cache"
     }
 }
 
@@ -2608,7 +2894,7 @@ function Get-AdminConsent
     
         write-verbose "admin consent Url: $url"
        
-        $output = Show-OAuthWindow -Url $url
+        $output = Get-OAuthCodeWebView2 -AuthUrl $url -RedirectUri $RedirectUri
 
         # return null if the output contains error
         if(![string]::IsNullOrEmpty($output["error"])){
