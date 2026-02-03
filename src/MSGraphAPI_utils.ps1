@@ -17,6 +17,8 @@ function Call-MSGraphAPI
         [String]$tenant,
         [Parameter(Mandatory=$false)]
         [String]$API,
+        [Parameter(Mandatory=$false)]
+        [String]$username="",        # optional username to identify the token in cache
         [Parameter(Mandatory=$False)]
         [ValidateSet('beta','v1.0')]
         [String]$ApiVersion="beta",

@@ -1776,7 +1776,7 @@ function Prompt-Credentials
         [Parameter(Mandatory=$false)]
         [bool]$IncludeRefreshToken=$false,
         [Parameter(Mandatory=$false)]
-        [String]$prompt="login",  # values like login, consent, admin_consent, select_account, none      
+        [String]$prompt="login",  # values like login, consent, admin_consent, select_account, none
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
 
@@ -2648,8 +2648,10 @@ function Get-Cache
     
                     $parsedToken = Read-Accesstoken -AccessToken $accessToken
                     $ClientId = $parsedToken.appid
+                    $resource = $parsedToken.aud
+                    $username = $parsedToken.unique_name.split("/")[-1].trim('#')
                     $cloud = $($key.split("-")[0])
-                    $refreshkey = "$cloud-$ClientId"                    
+                    $refreshkey = "$cloud-$ClientId-$resource-$username"               
     
                     $attributes = [ordered]@{
                         "Name" =            $parsedToken.unique_name

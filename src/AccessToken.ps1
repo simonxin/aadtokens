@@ -14,7 +14,7 @@ function Get-AccessTokenFromCache
         [Parameter(Mandatory=$True)]
         [String]$Resource,  
         [Parameter(Mandatory=$false)]   # on behalf of user UPN. Will do request access token from any existing refreshtoken if matches with this value
-        [String]$username,
+        [String]$username="",
         [Parameter(Mandatory=$false)]
         [bool]$IncludeRefreshToken=$False,
         [Parameter(Mandatory=$false)]
@@ -26,38 +26,49 @@ function Get-AccessTokenFromCache
 
         $resource = $Resource.TrimEnd('/')
 
-        
-
             if([string]::IsNullOrEmpty($AccessToken))
             {
                 # Check if cache entry is empty
-                if([string]::IsNullOrEmpty($Script:tokens["$cloud-$ClientId-$Resource"]))
+                if([string]::IsNullOrEmpty($Script:tokens["$cloud-$ClientId-$Resource-$username"]))
                 {
                     # Empty, so throw the exception
                     write-verbose "No saved tokens for client: $clientId and resource: $resourceId"
 
                     # try to get accesstoken based on refresh token                
-                    if ([string]::IsNullOrEmpty($username)) {
-                        # it is malformed to get accesstoken using different clientId
-                        $alltokensincache = Get-Cache | where {$_.cloud -eq $cloud -and  $_.clientid -eq  $clientId -and $_.HasRefreshToken -and ![string]::IsNullOrEmpty($_.Name)} 
+                    if ($username -eq "") {
+                        # it is malformed to get accesstoken using resource id and client id
+                        # $alltokensincache = Get-Cache | Where-Object {$_.cloud -eq $cloud -and  $_.clientid -eq  $clientId -and $_.HasRefreshToken} 
+                        $alltokensincache = Get-Cache | Where-Object {$_.cloud -eq $cloud -and  $_.clientid -eq  $clientId -and $Resource -eq $_.Audience}
+                        
 
                         if ($($alltokensincache | Measure-Object).count -gt 0){
-                            # Use first cached refreshtoken which matches the on behalf of user
-
-                            write-verbose "try to request access token on behalf of: $($alltokensincache[0].Name) with client: $clientid"
-                            $Audience = $alltokensincache[0].Audience
-                            $tenantId = $alltokensincache[0].Tenant
-                            $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]
-                           
+                            # Use first cached refreshtoken which matches the client ID and resource Id
+                            write-verbose "No username provided. Load the first access token on with client: $clientid and $resourceId"
+                            $retVal = $Script:tokens["$cloud-$ClientId-$Resource-$($alltokensincache[0].Name.split('/')[-1].trim('#'))"]
+                            $refreshtoken = $script:refresh_tokens["$cloud-$clientid-$Resource-$($alltokensincache[0].Name.split('/')[-1].trim('#'))"]
+                              
                         } else {
-                            write-verbose "no available delegation token found in cache"
-                            return $NULL
+                            $alltokensincache = Get-Cache | Where-Object {$_.clientid -eq $clientId -and $_.HasRefreshToken}
+                            if ($($alltokensincache | Measure-Object).count -gt 0){ 
+                                
+                                write-verbose "No access token match with client app $clientid and resource: $resource. Try to use first refersh token to create a new one"
+        
+                                $Audience = $alltokensincache[0].Audience
+                                $tenantId = $alltokensincache[0].Tenant
+                                $username = $alltokensincache[0].Name.split('/')[-1].trim('#')
+                                $refreshtoken = $script:refresh_tokens["$cloud-$clientid-$Audience-$username"]
+
+                            } else {
+
+                                write-verbose "Not able to request new access token for client app: $clientid and resource: $resourceId"
+                                return $NULL
+                            }
                         }
 
 
                     } else {
                             write-verbose "try to load token on behalf of: $username"
-                            $alltokensincache = Get-Cache | where {$_.Name -eq $username -and $_.clientid -eq  $clientId -and $_.HasRefreshToken} 
+                            $alltokensincache = Get-Cache | Where-Object {$_.name.split('/')[-1].trim('#') -like $username -and $_.clientid -eq $clientId -and $_.HasRefreshToken}
 
                             if ($($alltokensincache | Measure-Object).count -gt 0){
                                 # Use first cached refreshtoken which matches the on behalf of user
@@ -65,9 +76,8 @@ function Get-AccessTokenFromCache
         
                                 $Audience = $alltokensincache[0].Audience
                                 $tenantId = $alltokensincache[0].Tenant
-                                $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]
-   
-         
+                                $username = $alltokensincache[0].Name.split('/')[-1].trim('#')
+                                $refreshtoken = $script:refresh_tokens["$cloud-$clientid-$Audience-$username"]
                                 
                             } else {
                                 write-verbose "Not able to request new access token on behalf of: $username"
@@ -89,9 +99,8 @@ function Get-AccessTokenFromCache
                 }
                 else
                 {
-                    $retVal=$Script:tokens["$cloud-$ClientId-$Resource"]
-                    $refreshtoken = $script:refresh_tokens["$cloud-$ClientId"]
-                    
+                    $retVal=$Script:tokens["$cloud-$ClientId-$Resource-$username"]
+                    $refreshtoken = $script:refresh_tokens["$cloud-$ClientId-$Resource-$username"]                    
                 }
             }
             else
@@ -99,6 +108,7 @@ function Get-AccessTokenFromCache
                 # Check that the audience of the access token is correct
                 $tokenvalues =Read-Accesstoken -AccessToken $AccessToken
                 $audience=$tokenvalues.aud
+                $username = $alltokensincache[0].Name.split('/')[-1].trim('#')
 
                 # Strip the trailing slashes
                 if($audience.EndsWith("/"))
@@ -115,8 +125,8 @@ function Get-AccessTokenFromCache
                     # Wrong audience
                     Write-Verbose "detected the giving ACCESS TOKEN HAS WRONG AUDIENCE: $audience. Exptected: $resource."
                     Write-Verbose "Will try to load refreshtoken from cache ."
-                    $retVal = Get-AccessTokenfromcache -cloud $Cloud -Resource $Resource -ClientId $ClientID 
-                    $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]                    
+                    $retVal = Get-AccessTokenfromcache -cloud $Cloud -Resource $Resource -ClientId $ClientID -username $username
+                    $refreshtoken = $script:refresh_tokens["$cloud-$clientid-$Resource-$username"]                    
                     # throw "The audience of the access token ($audience) is wrong. Should be $resource!"
 
                 }
@@ -124,7 +134,7 @@ function Get-AccessTokenFromCache
                 {
                     # Just return the passed access token
                     $retVal=$AccessToken
-                    $refreshtoken = $script:refresh_tokens["$cloud-$clientid"]
+                    $refreshtoken = $script:refresh_tokens["$cloud-$clientid-$Resource-$username"] 
                 }
             }
 
@@ -156,6 +166,10 @@ function Get-RefreshTokenFromCache
     Param(
         [Parameter(Mandatory=$True)]
         [String]$ClientID,
+        [Parameter(Mandatory=$True)]
+        [String]$resource,
+        [Parameter(Mandatory=$True)]
+        [String]$username,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
     )
@@ -165,7 +179,7 @@ function Get-RefreshTokenFromCache
 
         $resource = $Resource.TrimEnd('/')
         write-verbose "get refresh token only"
-        $refreshtoken = $script:refresh_tokens["$cloud-$clientId"]
+        $refreshtoken = $script:refresh_tokens["$cloud-$clientId-$resource-$username"]
         return $refreshtoken
     }
     
@@ -2335,6 +2349,8 @@ function Get-AccessToken
         [Parameter(Mandatory=$False)]
         [string]$prompt="login", # default to login prompt, supported value like login, select_account, consent, none
         [Parameter(Mandatory=$False)]
+        [string]$username,
+        [Parameter(Mandatory=$False)]
         [securestring]$PfxPassword,
         [Parameter(Mandatory=$False)]
         [string]$TransportKeyFileName,
@@ -2491,13 +2507,14 @@ function Get-AccessToken
         } elseif  ($SaveToCache)    # Don't print out token if saved to cache!
         {
             $tokenitem =  read-accesstoken $access_token
+            $username = $tokenitem.unique_name.split("/")[-1].trim('#')
             if (![string]::IsNullOrEmpty($tokenitem.amr)) {
                 Write-Verbose "AccessToken saved to cache."
-                $script:tokens["$cloud-$ClientId-$($Resource.trimend('/'))"] =          $access_token
+                $script:tokens["$cloud-$ClientId-$($Resource.trimend('/'))-$username"] =          $access_token
                 
                 if(![string]::IsNullOrEmpty($refresh_token)) {
                     Write-Verbose "Refreshtoken saved to cache."
-                    $script:refresh_tokens["$cloud-$ClientId"] =  $refresh_token
+                    $script:refresh_tokens["$cloud-$ClientId-$($Resource.trimend('/'))-$username"] =  $refresh_token
                 }
             } else {
                 Write-verbose "skip save token in cache as no auth method detected with access token (like client credential flow)"
@@ -2589,13 +2606,16 @@ function Get-AccessTokenWithRefreshToken
         if($SaveToCache -and ![string]::IsNullOrEmpty($response.access_token))
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$cloud-$ClientId-$Resource"] =         $response.access_token
+            
+            $token = Read-Accesstoken -AccessToken $response.access_token
+            $username = $($token.name).split('/')[-1].trim('#')
+
+            $Script:tokens["$cloud-$ClientId-$Resource-$username"] = $response.access_token
 
             if(![string]::IsNullOrEmpty($response.refresh_token)) {
-                $Script:refresh_tokens["$cloud-$ClientId"] = $response.refresh_token
+                $Script:refresh_tokens["$cloud-$ClientId-$Resource-$username"] = $response.refresh_token
             }
 
-            
         }
 
         # Return
@@ -2911,8 +2931,16 @@ function Get-AccessTokenWithAuthorizationCode
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$cloud-$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$cloud-$ClientId"] = $response.refresh_token
+
+            $token = Read-Accesstoken -AccessToken $response.access_token
+            $username = $($token.name).split('/')[-1].trim('#')
+
+            $Script:tokens["$cloud-$ClientId-$Resource-$username"] = $response.access_token
+
+            if(![string]::IsNullOrEmpty($response.refresh_token)) {
+                $Script:refresh_tokens["$cloud-$ClientId-$Resource-$username"] = $response.refresh_token
+            }
+
         }
 
         # Return
@@ -2975,8 +3003,15 @@ function Get-AccessTokenWithDeviceSAML
         if($SaveToCache)
         {
             Write-Verbose "ACCESS TOKEN: SAVE TO CACHE"
-            $Script:tokens["$cloud-$ClientId-$Resource"] =         $response.access_token
-            $Script:refresh_tokens["$cloud-$ClientId"] = $response.refresh_token
+            $token = Read-Accesstoken -AccessToken $response.access_token
+            $username = $($token.name).split('/')[-1].trim('#')
+
+            $Script:tokens["$cloud-$ClientId-$Resource-$username"] = $response.access_token
+
+            if(![string]::IsNullOrEmpty($response.refresh_token)) {
+                $Script:refresh_tokens["$cloud-$ClientId-$Resource-$username"] = $response.refresh_token
+            }
+
         }
         else
         {
@@ -3049,6 +3084,8 @@ function Get-AccessTokenUsingAADGraph
         [String]$Resource,
         [Parameter(Mandatory=$True)]
         [String]$ClientId,
+        [Parameter(Mandatory=$false)]
+        [String]$username="",
         [switch]$SaveToCache,
         [Parameter(Mandatory=$false)]
         [String]$Cloud=$script:DefaultAzureCloud
@@ -3059,13 +3096,14 @@ function Get-AccessTokenUsingAADGraph
         $aadgraph = $script:AzureResources[$Cloud]['aad_graph_api']
         
         # Try to get AAD Graph access token from the cache
-        $AccessToken = Get-AccessTokenFromCache -Resource $($aadgraph.trimend("/")) -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894"
+        $AccessToken = Get-AccessTokenFromCache -Resource $($aadgraph.trimend("/")) -ClientId "1b730954-1685-4b74-9bfd-dac224a7b894" -username $userName
 
         # Get the tenant id
         $tenant = (Read-Accesstoken -AccessToken $AccessToken).tid
+        $username = (Read-Accesstoken -AccessToken $AccessToken).name.split('/')[-1].trim('#')
                 
         # Get the refreshtoken
-        $refresh_token=$script:refresh_tokens["1b730954-1685-4b74-9bfd-dac224a7b894-$aadgraph"]
+        $refresh_token=$script:refresh_tokens["$cloud-1b730954-1685-4b74-9bfd-dac224a7b894-$aadgraph-$username"]
 
         if([string]::IsNullOrEmpty($refresh_token))
         {
